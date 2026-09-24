@@ -114,7 +114,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 .hint{font-size:12px;color:var(--ink-3)}
 input,select{font-family:var(--mono);font-size:16px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:100%}
 select{font-family:var(--sans)}
-.unit-row{flex-direction:row;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.label-row{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:30px}
+.seg.mini button{padding:3px 10px;font-size:12px}
 .fx{background:var(--surface-2);border-radius:10px;padding:12px}
 .conv{color:var(--sell);font-family:var(--mono)}
 input.target{border-color:var(--sell);box-shadow:0 0 0 2px var(--sell-soft)}
@@ -304,33 +305,37 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
 
       <div class="field full"><h3>② 숫자 확인하기</h3><p class="hint">캡처에서 찾은 숫자가 들어가요. 틀리면 고치고, 캡처 없이 직접 적어도 돼요.</p></div>
 
-      <div class="field full unit-row">
-        <span class="small muted">증권사 앱에 금액이 어떻게 보이나요?</span>
-        <div class="seg" role="group" aria-label="금액 단위">
-          <button type="button" data-cur="usd" aria-pressed="true">$ 달러</button>
-          <button type="button" data-cur="krw" aria-pressed="false">₩ 원화</button>
+      <div class="field">
+        <div class="label-row"><label for="inShares">보유 수량 (주)</label></div>
+        <input id="inShares" inputmode="numeric" type="number" min="0" step="1" autocomplete="off">
+      </div>
+      <div class="field" id="priceField">
+        <div class="label-row">
+          <label for="inPrice">금요일 종가</label>
+          <div class="seg mini" role="group" aria-label="종가 단위" data-field="price">
+            <button type="button" data-unit="usd" aria-pressed="true">$</button>
+            <button type="button" data-unit="krw" aria-pressed="false">₩</button>
+          </div>
         </div>
+        <input id="inPrice" inputmode="decimal" type="number" min="0" step="0.01" autocomplete="off">
+        <span class="hint" id="priceConv"></span>
+      </div>
+      <div class="field full">
+        <div class="label-row">
+          <label for="inCash">VR에 쓰는 현금 = Pool</label>
+          <div class="seg mini" role="group" aria-label="현금 단위" data-field="cash">
+            <button type="button" data-unit="usd" aria-pressed="true">$ 달러</button>
+            <button type="button" data-unit="krw" aria-pressed="false">₩ 원화</button>
+          </div>
+        </div>
+        <input id="inCash" inputmode="decimal" type="number" min="0" step="0.01" autocomplete="off">
+        <span class="hint" id="cashConv"></span>
+        <span class="hint">증권사 앱에 원화로 보이면 ₩를 눌러 원화 그대로 적으세요. 계좌에 VR과 상관없는 돈이 있다면 그만큼 빼고 적어주세요.</span>
       </div>
       <div class="field full fx" id="fxRow" hidden>
         <label for="inFx">오늘 환율 (1달러 = ?원)</label>
         <input id="inFx" inputmode="decimal" type="number" min="1" step="0.01" autocomplete="off">
         <span class="hint" id="fxStatus">환율을 불러오는 중…</span>
-      </div>
-
-      <div class="field">
-        <label for="inShares">보유 수량 (주)</label>
-        <input id="inShares" inputmode="numeric" type="number" min="0" step="1" autocomplete="off">
-      </div>
-      <div class="field" id="priceField">
-        <label for="inPrice" id="priceLabel">금요일 종가 ($)</label>
-        <input id="inPrice" inputmode="decimal" type="number" min="0" step="0.01" autocomplete="off">
-        <span class="hint" id="priceConv"></span>
-      </div>
-      <div class="field full">
-        <label for="inCash" id="cashLabel">VR에 쓰는 현금 = Pool ($)</label>
-        <input id="inCash" inputmode="decimal" type="number" min="0" step="0.01" autocomplete="off">
-        <span class="hint" id="cashConv"></span>
-        <span class="hint">계좌에 VR과 상관없는 돈이 있다면 그만큼 빼고 적어주세요.</span>
       </div>
 
       <div class="full fields" id="setupFields">
@@ -503,6 +508,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
 </div>
 
 <script src="vr-core.js"></script>
+<script src="vr-parse.js"></script>
 <script>
 (() => {
   const C = window.VRCore;
@@ -668,9 +674,10 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     }
     const fx = c.calc?.fx;
     if (fx && fx.rate > 0) {
-      let t = `원화로 입력했어요 (1달러 = ${fx.rate.toLocaleString("ko-KR")}원). 현금 ${krw(fx.krwCash)} = ${usd(fx.krwCash / fx.rate)}`;
-      if (fx.krwPrice) t += `, 종가 ${krw(fx.krwPrice)} = ${usd(fx.krwPrice / fx.rate)}`;
-      add(t + ".");
+      const parts = [];
+      if (fx.krwCash != null) parts.push(`현금 ${krw(fx.krwCash)} = ${usd(fx.krwCash / fx.rate)}`);
+      if (fx.krwPrice) parts.push(`종가 ${krw(fx.krwPrice)} = ${usd(fx.krwPrice / fx.rate)}`);
+      if (parts.length) add(`원화로 입력했어요 (1달러 = ${fx.rate.toLocaleString("ko-KR")}원). ${parts.join(", ")}.`);
     }
     add("밴드는 V의 ±" + settings().bandPct + "%예요.", `최소 ${usd(b.min)} · 최대 ${usd(b.max)}`);
     add("매수점 = 최소밴드 ÷ 지금 보유 수량, 매도점 = 최대밴드 ÷ 지금 보유 수량.", `예) ${usd(b.min)} ÷ ${c.shares} = ${usd(C.r2(b.min / c.shares))}`);
@@ -715,7 +722,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     $("inShares").value = start ? "" : cur().shares;
     $("inPrice").value = ""; $("inCash").value = "";
     $("inIncluded").checked = false;
-    setUnit(unit);
+    syncUnits();
     $("btnCommit").textContent = start ? "시작하고 주문표 만들기" : "마감하고 다음 주문표 만들기";
     syncModeLabels(); updatePreview();
     $("flowPanel").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -737,28 +744,35 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
   }
 
   // ---------- 원화 입력 / 환율 ----------
-  const CUR_KEY = "vr-input-currency", FX_KEY = "vr-fx-cache";
-  let unit = (() => { try { return localStorage.getItem(CUR_KEY) === "krw" ? "krw" : "usd"; } catch { return "usd"; } })();
+  // 종가와 현금의 단위를 따로 둔다 (현재가는 달러, 예수금은 원화로 보여주는 앱이 많음)
+  const UNIT_KEY = "vr-input-units", FX_KEY = "vr-fx-cache";
+  const units = (() => {
+    try { const u = JSON.parse(localStorage.getItem(UNIT_KEY) || "{}"); return { price: u.price === "krw" ? "krw" : "usd", cash: u.cash === "krw" ? "krw" : "usd" }; }
+    catch { return { price: "usd", cash: "usd" }; }
+  })();
   let fxInfo = null; // {rate, date, source}
   const krw = (x) => Math.round(x).toLocaleString("ko-KR") + "원";
 
-  function setUnit(u) {
-    unit = u;
-    try { localStorage.setItem(CUR_KEY, u); } catch {}
-    document.querySelectorAll(".seg button[data-cur]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.cur === u));
-    const k = u === "krw";
-    $("fxRow").hidden = !k;
-    $("priceLabel").textContent = k ? "금요일 종가 (원)" : "금요일 종가 ($)";
-    $("cashLabel").textContent = k ? "VR에 쓰는 현금 = Pool (원)" : "VR에 쓰는 현금 = Pool ($)";
-    $("mockPrice").textContent = k ? "83,300원" : "$61.04";
-    $("mockEval").textContent = k ? "24,990,000원" : "$18,312";
-    $("mockCashLabel").textContent = k ? "원화 예수금" : "USD 예수금";
-    $("mockCash").textContent = k ? "2,730,000원" : "$2,000.00";
-    $("mockCash2").textContent = k ? "2,730,000원" : "$2,000.00";
-    $("inPrice").step = k ? "1" : "0.01";
-    $("inCash").step = k ? "1" : "0.01";
-    if (k) loadFx();
+  function setUnit(field, u) {
+    units[field] = u;
+    try { localStorage.setItem(UNIT_KEY, JSON.stringify(units)); } catch {}
+    syncUnits();
     updatePreview();
+  }
+  function syncUnits() {
+    document.querySelectorAll(".seg[data-field]").forEach((g) =>
+      g.querySelectorAll("button[data-unit]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.unit === units[g.dataset.field])));
+    const kp = units.price === "krw", kc = units.cash === "krw";
+    const anyKrw = (kp && needsPrice()) || kc;
+    $("fxRow").hidden = !anyKrw;
+    $("mockPrice").textContent = kp ? "83,300원" : "$61.04";
+    $("mockEval").textContent = kp ? "24,990,000원" : "$18,312";
+    $("mockCashLabel").textContent = kc ? "원화 예수금" : "USD 예수금";
+    $("mockCash").textContent = kc ? "2,730,000원" : "$2,000.00";
+    $("mockCash2").textContent = kc ? "2,730,000원" : "$2,000.00";
+    $("inPrice").step = kp ? "1" : "0.01";
+    $("inCash").step = kc ? "1" : "0.01";
+    if (anyKrw) loadFx();
   }
 
   async function loadFx() {
@@ -807,17 +821,17 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     const priceIn = Number($("inPrice").value);
     const cashIn = Number($("inCash").value);
     const rate = Number($("inFx").value);
-    const k = unit === "krw";
-    const rateOk = !k || rate > 0;
-    const price = priceIn > 0 && rateOk ? (k ? C.r2(priceIn / rate) : priceIn) : 0;
-    const cash = cashIn >= 0 && rateOk ? (k ? C.r2(cashIn / rate) : cashIn) : NaN;
+    const kp = units.price === "krw" && needsPrice(), kc = units.cash === "krw";
+    const rateOk = !(kp || kc) || rate > 0;
+    const price = priceIn > 0 && rateOk ? (kp ? C.r2(priceIn / rate) : priceIn) : 0;
+    const cash = cashIn >= 0 && rateOk ? (kc ? C.r2(cashIn / rate) : cashIn) : NaN;
     const priceOk = !needsPrice() || price > 0;
     $("priceConv").innerHTML = ""; $("cashConv").innerHTML = "";
-    if (k && rate > 0) {
-      if (priceIn > 0) $("priceConv").innerHTML = `<span class="conv">= ${usd(price)}</span>`;
-      if ($("inCash").value !== "" && cashIn >= 0) $("cashConv").innerHTML = `<span class="conv">= ${usd(cash)}</span>`;
+    if (rate > 0) {
+      if (kp && priceIn > 0) $("priceConv").innerHTML = `<span class="conv">= ${usd(price)}</span>`;
+      if (kc && $("inCash").value !== "" && cashIn >= 0) $("cashConv").innerHTML = `<span class="conv">= ${usd(cash)}</span>`;
     }
-    const fx = k ? { rate, krwPrice: priceIn || null, krwCash: cashIn } : null;
+    const fx = kp || kc ? { rate, krwPrice: kp ? priceIn : null, krwCash: kc ? cashIn : null } : null;
     return { shares, price, cash, fx, rateOk, ok: shares > 0 && priceOk && rateOk && $("inCash").value !== "" && cash >= 0 };
   }
 
@@ -931,31 +945,6 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
   const toNum = (s) => Number(s.replace(/,/g, ""));
   function numsIn(line) { return (line.match(NUM_RE) || []).map(toNum).filter((n) => Number.isFinite(n)); }
 
-  function guess(lines) {
-    const g = {};
-    const find = (re, pick) => {
-      for (let i = 0; i < lines.length; i++) {
-        if (re.test(lines[i])) {
-          const v = pick(numsIn(lines[i])) ?? pick(numsIn(lines[i + 1] || ""));
-          if (v != null) return v;
-        }
-      }
-      return null;
-    };
-    const firstInt = (a) => a.find((n) => Number.isInteger(n) && n > 0 && n < 1e6) ?? null;
-    const firstDec = (a) => a.find((n) => n > 0 && n < 10000 && !Number.isInteger(n)) ?? a.find((n) => n > 0 && n < 10000) ?? null;
-    const firstMoney = (a) => a.find((n) => n >= 0) ?? null;
-    // 금액 단위 판단: "12,345원", "₩", "KRW"가 보이고 달러 표시가 없으면 원화 화면
-    const text = lines.join("\n");
-    const krwSign = /\d\s*원|₩|KRW/.test(text), usdSign = /\$\s*\d|\d\s*USD|US\$/.test(text);
-    g.unit = krwSign && !usdSign ? "krw" : usdSign && !krwSign ? "usd" : null;
-    const krwMode = (g.unit ?? unit) === "krw";
-    const firstKrwPrice = (a) => a.find((n) => n >= 1000 && n < 1e7) ?? null;
-    g.shares = find(/보유\s*수량|잔고\s*수량|보유\s*주|주문\s*가능\s*수량|수량/, firstInt);
-    g.price = find(/현재가|종가|현재\s*가격/, krwMode ? firstKrwPrice : firstDec);
-    g.cash = find(/예수금|주문\s*가능\s*(금액|달러|USD|원화)?|외화|원화|USD|달러/i, firstMoney);
-    return g;
-  }
 
   async function runOcr(files) {
     $("ocrNums").textContent = "";
@@ -972,13 +961,22 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
         },
       });
       const lines = [];
+      const found = { shares: null, price: null, priceUnit: null, cash: null, cashUnit: null };
       for (let i = 0; i < files.length; i++) {
         $("ocrStatus").textContent = `캡처 ${i + 1}/${files.length} 읽는 중…`;
         const img = await prepare(files[i]);
         const { data } = await worker.recognize(img);
         lines.push(...data.text.split("\n").map((l) => l.trim()).filter(Boolean));
+        // 캡처마다 따로 읽고, 먼저 찾은 값을 쓴다 (잔고 화면 + 예수금 화면)
+        const r = window.VRParse.parseScreen((data.lines || []).map((l) => ({
+          text: l.text.trim(),
+          words: l.words.map((w) => ({ t: w.text, x0: w.bbox.x0, x1: w.bbox.x1 })),
+        })));
+        if (found.shares == null && r.shares != null) found.shares = r.shares;
+        if (found.price == null && r.price != null) { found.price = r.price; found.priceUnit = r.priceUnit; }
+        if (found.cash == null && r.cash != null) { found.cash = r.cash; found.cashUnit = r.cashUnit; }
       }
-      showNumbers(lines);
+      showNumbers(lines, found);
     } catch {
       $("ocrStatus").textContent = "캡처를 읽지 못했어요. 숫자를 직접 입력해 주세요.";
     } finally {
@@ -987,13 +985,23 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     }
   }
 
-  function showNumbers(lines) {
-    const g = guess(lines);
+  function showNumbers(lines, g) {
     const filled = [];
-    if (g.unit && g.unit !== unit) { setUnit(g.unit); filled.push(g.unit === "krw" ? "단위(원화)" : "단위(달러)"); }
-    if (g.shares != null && !$("inShares").value) { $("inShares").value = g.shares; filled.push("보유 수량"); }
-    if (g.price != null && needsPrice() && !$("inPrice").value) { $("inPrice").value = g.price; filled.push("종가"); }
-    if (g.cash != null && !$("inCash").value) { $("inCash").value = g.cash; filled.push("현금"); }
+    if (g.shares != null) { $("inShares").value = g.shares; filled.push(`보유 수량 ${g.shares}주`); }
+    if (g.price != null && needsPrice()) {
+      if (g.priceUnit !== units.price) setUnit("price", g.priceUnit);
+      $("inPrice").value = g.price;
+      filled.push(`종가 ${g.priceUnit === "krw" ? krw(g.price) : usd(g.price)}`);
+    }
+    if (g.cash != null) {
+      if (g.cashUnit !== units.cash) setUnit("cash", g.cashUnit);
+      $("inCash").value = g.cash;
+      filled.push(`현금 ${g.cashUnit === "krw" ? krw(g.cash) : usd(g.cash)}`);
+    }
+    const missing = [];
+    if (g.shares == null) missing.push("보유 수량");
+    if (g.price == null && needsPrice()) missing.push("종가");
+    if (g.cash == null) missing.push("현금(예수금)");
 
     const seen = new Set(), nums = [];
     for (const l of lines) for (const n of (l.match(NUM_RE) || [])) {
@@ -1016,9 +1024,15 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       };
       box.append(b);
     }
-    $("ocrStatus").textContent = (filled.length ? `${filled.join(", ")} 칸을 채웠어요. 맞는지 꼭 확인하세요. ` : "")
-      + (nums.length ? "틀린 칸이 있으면 그 칸을 누른 뒤 아래 숫자를 누르세요." : "숫자를 찾지 못했어요. 직접 입력해 주세요.");
-    setTarget(filled.includes("보유 수량") ? "inCash" : "inShares");
+    let msg = filled.length ? `찾았어요: ${filled.join(" · ")}. 캡처와 같은지 꼭 확인하세요. ` : "";
+    if (missing.length) {
+      msg += `${missing.join(", ")}은(는) 못 찾았어요. `;
+      if (missing.includes("현금(예수금)")) msg += "예수금이 보이는 화면(예: 외화잔고 탭)도 캡처해서 같이 올리거나, ";
+      msg += "그 칸을 누른 뒤 아래 숫자를 누르거나 직접 적어주세요.";
+    }
+    $("ocrStatus").textContent = msg || "숫자를 찾지 못했어요. 직접 입력해 주세요.";
+    const firstMissing = { "보유 수량": "inShares", "종가": "inPrice", "현금(예수금)": "inCash" }[missing[0]] || "inShares";
+    setTarget(firstMissing);
     updatePreview();
   }
 
@@ -1046,7 +1060,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
   };
 
   // ---------- 이벤트 ----------
-  document.querySelectorAll(".seg button[data-cur]").forEach((b) => b.onclick = () => setUnit(b.dataset.cur));
+  document.querySelectorAll(".seg[data-field] button[data-unit]").forEach((b) => b.onclick = () => setUnit(b.closest(".seg").dataset.field, b.dataset.unit));
   $("inFx").addEventListener("input", updatePreview);
   $("btnOpen").onclick = openFlow;
   $("btnCloseFlow").onclick = closeFlow;
