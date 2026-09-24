@@ -115,6 +115,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 .hint{font-size:12px;color:var(--ink-3)}
 input,select{font-family:var(--mono);font-size:16px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:100%}
 select{font-family:var(--sans)}
+.flowbox{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:14px}
+.flowbox .seg{align-self:flex-start}
+.flowbox .seg button{padding:8px 18px;font-size:14px}
 .label-row{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:30px}
 .seg.mini button{padding:3px 10px;font-size:12px}
 .fx{background:var(--surface-2);border-radius:10px;padding:12px}
@@ -382,10 +385,24 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
         </div>
       </div>
 
-      <label class="check full" id="includedWrap" hidden>
-        <input type="checkbox" id="inIncluded">
-        <span id="includedText">이번 적립금을 이미 계좌에 넣었어요 (위 현금에 포함됨)</span>
-      </label>
+      <div class="full flowbox" id="flowBox" hidden>
+        <h3>③ 이번 2주 입출금</h3>
+        <p class="hint" id="flowPlan"></p>
+        <div class="seg" role="group" aria-label="입출금">
+          <button type="button" data-flow="in" aria-pressed="false">넣기</button>
+          <button type="button" data-flow="none" aria-pressed="false">없음</button>
+          <button type="button" data-flow="out" aria-pressed="false">빼기</button>
+        </div>
+        <div class="field" id="flowAmtField">
+          <label for="inFlowAmt" id="flowAmtLabel">넣을 금액 ($)</label>
+          <input id="inFlowAmt" inputmode="decimal" type="number" min="0" step="1" autocomplete="off">
+          <span class="hint" id="flowConv"></span>
+        </div>
+        <label class="check" id="includedWrap">
+          <input type="checkbox" id="inIncluded">
+          <span id="includedText">이미 계좌에 넣었어요 (위 현금에 포함됨)</span>
+        </label>
+      </div>
 
       <div class="preview full" id="preview"></div>
       <p class="error full" id="flowError" hidden></p>
@@ -449,6 +466,49 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       </dl>
     </details>
 
+    <details id="settingsDetails">
+      <summary>설정 바꾸기</summary>
+      <div class="fields">
+        <p class="full small muted">적립식에서 거치식·인출식으로 넘어가거나, 2주마다 넣을 금액을 바꿀 때 쓰세요. 새 방식은 <b>다음 사이클 마감부터</b> 적용돼요. 사용한도·밴드는 지금 주문표에 바로 반영돼요.</p>
+        <div class="field">
+          <label for="setMode">방식</label>
+          <select id="setMode">
+            <option value="accum">적립식 · 2주마다 넣음</option>
+            <option value="lump">거치식 · 입출금 없음</option>
+            <option value="withdraw">인출식 · 2주마다 뺌</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="setContrib" id="setContribLabel">2주마다 넣을 돈 ($)</label>
+          <input id="setContrib" inputmode="decimal" type="number" min="0" step="1">
+        </div>
+        <div class="field">
+          <label for="setG">G (속도 조절)</label>
+          <input id="setG" inputmode="decimal" type="number" min="1" step="1">
+        </div>
+        <div class="field">
+          <label for="setLimit">Pool 사용한도 (%)</label>
+          <input id="setLimit" inputmode="decimal" type="number" min="10" max="100" step="5">
+        </div>
+        <div class="field">
+          <label for="setBand">밴드 폭 (±%)</label>
+          <input id="setBand" inputmode="decimal" type="number" min="5" max="40" step="1">
+        </div>
+        <div class="field">
+          <label for="setFormula">공식</label>
+          <select id="setFormula">
+            <option value="basic">기본공식</option>
+            <option value="skill">실력공식</option>
+          </select>
+        </div>
+        <p class="full hint">책의 권장값 · 적립식: G 10, 한도 75% · 거치식: G 10, 한도 50% · 인출식: G 20, 한도 25%</p>
+        <div class="actions full">
+          <button class="primary" id="btnSaveSettings" type="button">설정 저장</button>
+        </div>
+        <p class="full small muted" id="settingsStatus"></p>
+      </div>
+    </details>
+
     <details>
       <summary>기록과 백업</summary>
       <div class="tbl-wrap">
@@ -510,7 +570,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     <button class="linklike" id="btnStayInApp" type="button">그냥 여기서 볼게요</button>
   </div>
 
-  <footer>계산은 『라오어의 미국주식 밸류 리밸런싱』의 공식을 따릅니다.<br>주문과 투자 판단은 본인이 확인하고 결정하세요. 입력한 숫자는 이 기기 밖으로 나가지 않아요.<br><span id="appVersion">버전 2026.09.24-7</span></footer>
+  <footer>계산은 『라오어의 미국주식 밸류 리밸런싱』의 공식을 따릅니다.<br>주문과 투자 판단은 본인이 확인하고 결정하세요. 입력한 숫자는 이 기기 밖으로 나가지 않아요.<br><span id="appVersion">버전 2026.09.24-8</span></footer>
 </div>
 
 <script src="vr-core.js"></script>
@@ -729,6 +789,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     $("inPrice").value = ""; $("inCash").value = "";
     $("inIncluded").checked = false;
     syncUnits();
+    if (!start) resetFlow();
     $("btnCommit").textContent = start ? "시작하고 주문표 만들기" : "마감하고 다음 주문표 만들기";
     syncModeLabels(); updatePreview();
     $("flowPanel").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -743,11 +804,38 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     const mode = isStart() ? $("inMode").value : settings().mode;
     $("contribLabel").textContent = mode === "withdraw" ? "2주마다 뺄 돈 ($)" : "2주마다 넣을 돈 ($)";
     $("inContrib").disabled = mode === "lump";
-    $("includedWrap").hidden = isStart() || mode === "lump";
-    $("includedText").textContent = mode === "withdraw"
-      ? `이번 인출금 ${usd(settings().contrib, 0)}을 이미 뺐어요 (위 현금에서 빠진 상태)`
-      : `이번 적립금 ${usd(settings().contrib, 0)}을 이미 계좌에 넣었어요 (위 현금에 포함됨)`;
+    $("flowBox").hidden = isStart();
+    if (!isStart()) syncFlow();
   }
+
+  // ---------- 이번 사이클 입출금 ----------
+  // 계획(적립식 +, 인출식 −)을 기본값으로 두고, 이번 사이클만 다르게 넣거나 뺄 수 있다
+  let flowDir = "none";
+  function planFlow() {
+    const s = settings(), amt = Number(s.contrib) || 0;
+    if (s.mode === "accum" && amt > 0) return { dir: "in", amt, text: `계획: 2주마다 ${usd(amt, 0)} 넣기 (적립식)` };
+    if (s.mode === "withdraw" && amt > 0) return { dir: "out", amt, text: `계획: 2주마다 ${usd(amt, 0)} 빼기 (인출식)` };
+    return { dir: "none", amt: 0, text: "계획: 입출금 없음 (거치식)" };
+  }
+  function resetFlow() {
+    const p = planFlow();
+    flowDir = p.dir;
+    $("inFlowAmt").value = p.amt ? (units.cash === "krw" && Number($("inFx").value) > 0 ? Math.round(p.amt * Number($("inFx").value)) : p.amt) : "";
+    $("flowPlan").textContent = p.text + ". 이번만 다르게 하려면 아래에서 바꾸세요.";
+    syncFlow();
+  }
+  function syncFlow() {
+    document.querySelectorAll("#flowBox button[data-flow]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.flow === flowDir));
+    const k = units.cash === "krw";
+    $("flowAmtField").hidden = flowDir === "none";
+    $("includedWrap").hidden = flowDir === "none";
+    $("flowAmtLabel").textContent = (flowDir === "out" ? "뺄 금액" : "넣을 금액") + (k ? " (원)" : " ($)");
+    $("inFlowAmt").step = k ? "1000" : "1";
+    $("includedText").textContent = flowDir === "out"
+      ? "이미 뺐어요 (위 현금은 뺀 뒤의 금액이에요)"
+      : "이미 계좌에 넣었어요 (위 현금에 포함돼 있어요)";
+  }
+  function setFlow(dir) { flowDir = dir; syncFlow(); updatePreview(); }
 
   // ---------- 원화 입력 / 환율 ----------
   // 종가와 현금의 단위를 따로 둔다 (현재가는 달러, 예수금은 원화로 보여주는 앱이 많음)
@@ -779,6 +867,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     $("inPrice").step = kp ? "1" : "0.01";
     $("inCash").step = kc ? "1" : "0.01";
     if (anyKrw) loadFx();
+    if (!$("flowBox").hidden) syncFlow();
   }
 
   async function loadFx() {
@@ -837,8 +926,17 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       if (kp && priceIn > 0) $("priceConv").innerHTML = `<span class="conv">= ${usd(price)}</span>`;
       if (kc && $("inCash").value !== "" && cashIn >= 0) $("cashConv").innerHTML = `<span class="conv">= ${usd(cash)}</span>`;
     }
-    const fx = kp || kc ? { rate, krwPrice: kp ? priceIn : null, krwCash: kc ? cashIn : null } : null;
-    return { shares, price, cash, fx, rateOk, ok: shares > 0 && priceOk && rateOk && $("inCash").value !== "" && cash >= 0 };
+    // 이번 사이클 입출금 (달러, 넣기 +, 빼기 −)
+    const flowIn = Number($("inFlowAmt").value) || 0;
+    let flow = 0;
+    $("flowConv").innerHTML = "";
+    if (!isStart() && flowDir !== "none" && flowIn > 0 && rateOk) {
+      const amtUsd = kc ? C.r2(flowIn / rate) : flowIn;
+      flow = flowDir === "out" ? -amtUsd : amtUsd;
+      if (kc) $("flowConv").innerHTML = `<span class="conv">= ${usd(amtUsd)}</span>`;
+    }
+    const fx = kp || kc ? { rate, krwPrice: kp ? priceIn : null, krwCash: kc ? cashIn : null, krwFlow: kc && flow ? flowIn : null } : null;
+    return { shares, price, cash, flow, fx, rateOk, ok: shares > 0 && priceOk && rateOk && $("inCash").value !== "" && cash >= 0 };
   }
 
   function formSettings() {
@@ -855,11 +953,18 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
 
   function computeNext(f) {
     const s = settings(), c = cur();
-    const flowAmt = C.flow(s);
-    const poolEnd = $("inIncluded").checked ? f.cash - flowAmt : f.cash;
+    const flowAmt = f.flow;
+    // 캡처한 현금에 이번 입출금이 이미 반영돼 있으면, 반영 전 금액(사이클 마지막 날 Pool)으로 되돌려 계산
+    const poolEnd = flowAmt && $("inIncluded").checked ? f.cash - flowAmt : f.cash;
     const E = C.r2(f.shares * f.price);
     const r = C.nextV({ V1: c.V, poolEnd, E, G: Number(s.G), c: flowAmt, formula: s.formula });
     return { ...r, poolEnd: C.r2(poolEnd), poolStart: C.r2(poolEnd + flowAmt), E, c: flowAmt };
+  }
+
+  function flowProblem(n) {
+    if (n.poolEnd < 0) return "넣은 금액이 현금보다 커요. '이미 계좌에 넣었어요' 체크를 확인해 주세요.";
+    if (n.poolStart < 0) return `뺄 금액이 Pool 현금보다 ${usd(-n.poolStart)} 많아요. Pool 안에서만 뺄 수 있어요. 더 빼려면 주식을 먼저 팔아야 해요.`;
+    return null;
   }
 
   function updatePreview() {
@@ -875,7 +980,8 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       line(`밴드 ${usd(b.min)} ~ ${usd(b.max)} · Pool ${usd(f.cash)}`);
     } else {
       const s = settings(), n = computeNext(f), c = cur();
-      if (n.poolEnd < 0) { line("현금이 적립금보다 적어요. 체크 표시를 확인해 주세요.", "error"); return; }
+      const bad = flowProblem(n);
+      if (bad) { line(bad, "error"); return; }
       let eq = `새 V = ${usd(c.V)} + ${usd(n.poolEnd)} ÷ ${s.G}`;
       if (s.formula === "skill") eq += ` + (${usd(n.E)} − ${usd(c.V)}) ÷ 2√${s.G}`;
       if (n.c) eq += (n.c > 0 ? " + " : " − ") + usd(Math.abs(n.c));
@@ -896,7 +1002,8 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       };
     } else {
       const n = computeNext(f), s = settings(), c = cur();
-      if (n.poolEnd < 0) { err.textContent = "현금이 적립금보다 적어요. 체크 표시를 확인해 주세요."; err.hidden = false; return; }
+      const bad = flowProblem(n);
+      if (bad) { err.textContent = bad; err.hidden = false; return; }
       state.cycles.push({
         n: c.n + 1, date: today(), V: n.V, poolStart: n.poolStart, shares: f.shares, price: f.price,
         calc: { kind: "next", V1: c.V, poolEnd: n.poolEnd, E: n.E, G: Number(s.G), c: n.c, formula: s.formula, poolTerm: n.poolTerm, skillTerm: n.skillTerm, fx: f.fx },
@@ -980,7 +1087,10 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
         })));
         if (found.shares == null && r.shares != null) found.shares = r.shares;
         if (found.price == null && r.price != null) { found.price = r.price; found.priceUnit = r.priceUnit; }
-        if (found.cash == null && r.cash != null) { found.cash = r.cash; found.cashUnit = r.cashUnit; }
+        // 예수금을 직접 찾은 값이 총자산−평가금액으로 계산한 값보다 우선
+        if (r.cash != null && (found.cash == null || (found.cashFrom && !r.cashFrom))) {
+          found.cash = r.cash; found.cashUnit = r.cashUnit; found.cashFrom = r.cashFrom;
+        }
       }
       showNumbers(lines, found);
     } catch {
@@ -1002,7 +1112,10 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     if (g.cash != null) {
       if (g.cashUnit !== units.cash) setUnit("cash", g.cashUnit);
       $("inCash").value = g.cash;
-      filled.push(`현금 ${g.cashUnit === "krw" ? krw(g.cash) : usd(g.cash)}`);
+      const m = (x) => (g.cashUnit === "krw" ? krw(x) : usd(x));
+      filled.push(g.cashFrom
+        ? `현금 ${m(g.cash)} (총자산 ${m(g.cashFrom.total)} − 주식 평가금액 ${m(g.cashFrom.evalAmt)}로 계산)`
+        : `현금 ${m(g.cash)}`);
     }
     const missing = [];
     if (g.shares == null) missing.push("보유 수량");
@@ -1066,13 +1179,54 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
   };
 
   // ---------- 이벤트 ----------
+  // ---------- 설정 바꾸기 ----------
+  function fillSettingsForm() {
+    const s = settings();
+    $("setMode").value = s.mode; $("setContrib").value = s.contrib; $("setG").value = s.G;
+    $("setLimit").value = s.limitPct; $("setBand").value = s.bandPct; $("setFormula").value = s.formula;
+    syncSetMode();
+    $("btnSaveSettings").disabled = !!state.example;
+    $("settingsStatus").textContent = state.example ? "내 VR을 시작한 뒤에 바꿀 수 있어요." : "";
+  }
+  function syncSetMode() {
+    const m = $("setMode").value;
+    $("setContribLabel").textContent = m === "withdraw" ? "2주마다 뺄 돈 ($)" : "2주마다 넣을 돈 ($)";
+    $("setContrib").disabled = m === "lump";
+  }
+  $("settingsDetails").addEventListener("toggle", () => { if ($("settingsDetails").open) fillSettingsForm(); });
+  $("setMode").addEventListener("change", () => {
+    const d = DEFAULTS[$("setMode").value];
+    $("setG").value = d.G; $("setLimit").value = d.limitPct;
+    if ($("setMode").value === "lump") $("setContrib").value = 0;
+    else if (!(Number($("setContrib").value) > 0)) $("setContrib").value = d.contrib;
+    syncSetMode();
+  });
+  $("btnSaveSettings").onclick = () => {
+    if (state.example) return;
+    const m = $("setMode").value;
+    const before = settings();
+    state.settings = {
+      mode: m,
+      contrib: m === "lump" ? 0 : Math.max(0, Number($("setContrib").value) || 0),
+      G: Math.max(1, Number($("setG").value) || DEFAULTS[m].G),
+      limitPct: Math.min(100, Math.max(1, Number($("setLimit").value) || DEFAULTS[m].limitPct)),
+      bandPct: Math.min(50, Math.max(1, Number($("setBand").value) || 15)),
+      formula: $("setFormula").value,
+    };
+    const log = (state.settingsLog ||= []);
+    log.push({ date: today(), fromCycle: cur().n, before, after: state.settings });
+    render(); persist();
+    $("settingsStatus").textContent = `저장했어요. ${MODE_NAME[m]}${state.settings.contrib ? ` · 2주마다 ${usd(state.settings.contrib, 0)}` : ""} · G ${state.settings.G} · 한도 ${state.settings.limitPct}%.`;
+  };
+
   document.querySelectorAll(".seg[data-field] button[data-unit]").forEach((b) => b.onclick = () => setUnit(b.closest(".seg").dataset.field, b.dataset.unit));
   $("inFx").addEventListener("input", updatePreview);
   $("btnOpen").onclick = openFlow;
   $("btnCloseFlow").onclick = closeFlow;
   $("btnCommit").onclick = commit;
   $("fileInput").onchange = (ev) => { const fs = [...ev.target.files]; if (fs.length) runOcr(fs); };
-  ["inShares", "inPrice", "inCash", "inG", "inLimit", "inContrib", "inBand", "inFormula", "inIncluded"].forEach((id) => $(id).addEventListener("input", updatePreview));
+  ["inShares", "inPrice", "inCash", "inG", "inLimit", "inContrib", "inBand", "inFormula", "inIncluded", "inFlowAmt"].forEach((id) => $(id).addEventListener("input", updatePreview));
+  document.querySelectorAll("#flowBox button[data-flow]").forEach((b) => b.onclick = () => setFlow(b.dataset.flow));
   $("inMode").addEventListener("change", () => {
     const d = DEFAULTS[$("inMode").value];
     $("inG").value = d.G; $("inLimit").value = d.limitPct; $("inContrib").value = d.contrib;

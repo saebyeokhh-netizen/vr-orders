@@ -96,7 +96,33 @@
         return { cash: v, cashUnit: unit };
       }
     }
-    return { cash: null, cashUnit: null };
+    return fromTotal(lines);
+  }
+
+  // 예수금이 안 보이면: 총자산 − 주식 평가금액 = 현금
+  function fromTotal(lines) {
+    const none = { cash: null, cashUnit: null };
+    const firstNum = (l) => { const w = l && l.words.find((x) => !/%/.test(x.t) && numOf(squash(x.t)) != null); return w ? numOf(squash(w.t)) : null; };
+    let total = null, totalUnit = null, evalAmt = null;
+    for (let i = 0; i < lines.length && total == null; i++) {
+      const sq = squash(lines[i].text);
+      if (!/총.*자산|외화자산|총자산|총평가/.test(sq)) continue;
+      for (const l of [lines[i], lines[i + 1]]) {
+        const v = firstNum(l);
+        if (v == null) continue;
+        total = v;
+        const t = squash(l.text);
+        totalUnit = /USD|\$|달러/i.test(t) ? "usd" : /원|₩|KRW/.test(t) ? "krw" : (Number.isInteger(v) && v >= 50000 ? "krw" : "usd");
+        break;
+      }
+    }
+    if (total == null) return none;
+    // 글자 인식이 "평가금액"을 "평가금이"처럼 끝 글자를 틀리게 읽는 경우가 있어 앞부분만 맞춘다
+    const ev = lines.find((l) => /평가금|평가액/.test(squash(l.text)) && !/총/.test(squash(l.text)));
+    evalAmt = firstNum(ev);
+    if (evalAmt == null || evalAmt > total) return none;
+    const cash = Math.round((total - evalAmt) * 100) / 100;
+    return { cash, cashUnit: totalUnit, cashFrom: { total, evalAmt } };
   }
 
   function parseScreen(lines) {
@@ -106,12 +132,12 @@
     const lab = fromLabels(lines);
     const shares = tbl.shares ?? lab.shares;
     const price = tbl.price ?? lab.price;
-    const { cash, cashUnit } = findCash(lines);
+    const { cash, cashUnit, cashFrom } = findCash(lines);
     return {
       shares: shares ?? null,
       price: price ?? null,
       priceUnit: price == null ? null : price >= 5000 ? "krw" : "usd", // TQQQ는 달러로 수십~수백, 원화로 수만 원
-      cash, cashUnit,
+      cash, cashUnit, cashFrom: cashFrom ?? null,
     };
   }
 
