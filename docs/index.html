@@ -124,6 +124,23 @@ input.target{border-color:var(--sell);box-shadow:0 0 0 2px var(--sell-soft)}
 .ocr-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .filebtn{position:relative;overflow:hidden;display:inline-flex}
 .filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.ocr{border:1.5px solid var(--line);background:var(--bg)}
+.shots{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.shot{margin:0;display:flex;flex-direction:column;gap:6px}
+.shot figcaption{font-size:12px;color:var(--ink-2)}
+.shot figcaption b{color:var(--ink)}
+.mock{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:5px;font-size:12px}
+.mock-row{display:flex;justify-content:space-between;gap:6px;align-items:baseline;font-family:var(--mono)}
+.mock-name{font-family:var(--sans);font-weight:700;font-size:13px;border-bottom:1px solid var(--surface-2);padding-bottom:4px}
+.mock-name .mock-dim{font-weight:400;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mock-dim{color:var(--ink-3);font-family:var(--sans)}
+.mock-row.off mark{background:none;color:var(--ink-3);font-weight:400}
+.mock mark{background:#FFE36B;color:#141B26;border-radius:3px;padding:0 3px;font-weight:600}
+ul.need{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--ink-2)}
+ul.need b{color:var(--ink)}
+.filebtn.upload{display:flex}
+.filebtn.upload button{width:100%}
+@media (max-width:380px){ .shots{grid-template-columns:1fr} }
 .nums{display:flex;flex-wrap:wrap;gap:6px}
 .nums button{font-family:var(--mono);font-size:14px;padding:5px 10px;border-radius:999px;background:var(--surface-2);border-color:transparent}
 .progress{height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden}
@@ -250,6 +267,43 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     <div class="fields">
       <p class="full small muted" id="flowIntro"></p>
 
+      <!-- 1단계: 캡처 올리기 -->
+      <div class="ocr full">
+        <h3>① 증권사 앱 화면 캡처 올리기</h3>
+        <p class="small muted">아래 숫자가 <b>모두 보이게</b> 찍어주세요. 한 화면에 다 안 보이면 여러 장 올려도 돼요.</p>
+        <div class="shots">
+          <figure class="shot">
+            <figcaption>캡처 1 · 해외주식 <b>잔고</b> 화면</figcaption>
+            <div class="mock">
+              <div class="mock-row mock-name"><span>TQQQ</span><span class="mock-dim">프로셰어즈 울트라프로 QQQ</span></div>
+              <div class="mock-row"><span class="mock-dim">보유수량</span><mark>300주</mark></div>
+              <div class="mock-row" id="mockPriceRow"><span class="mock-dim">현재가</span><mark id="mockPrice">$61.04</mark></div>
+              <div class="mock-row"><span class="mock-dim">평가금액</span><span class="mock-dim" id="mockEval">$18,312</span></div>
+            </div>
+          </figure>
+          <figure class="shot">
+            <figcaption>캡처 2 · <b>예수금</b>(현금) 화면</figcaption>
+            <div class="mock">
+              <div class="mock-row mock-name"><span>외화 예수금</span></div>
+              <div class="mock-row"><span class="mock-dim" id="mockCashLabel">USD 예수금</span><mark id="mockCash">$2,000.00</mark></div>
+              <div class="mock-row"><span class="mock-dim">주문가능금액</span><span class="mock-dim" id="mockCash2">$2,000.00</span></div>
+            </div>
+          </figure>
+        </div>
+        <ul class="need" id="needList">
+          <li><b>TQQQ 보유 수량</b> (몇 주인지)</li>
+          <li id="needPrice"><b>TQQQ 현재가</b> (금요일 장 마감 후 찍으면 그게 종가예요)</li>
+          <li><b>현금(예수금)</b> · 달러로 보이면 달러, 원화로 보이면 원화 그대로 괜찮아요</li>
+        </ul>
+        <p class="hint">형광펜 친 숫자만 있으면 돼요. 앱마다 이름이 조금 달라요: 보유수량 = 잔고수량 · 현재가 = 시세 · 예수금 = 주문가능금액</p>
+        <span class="filebtn upload"><button type="button" class="primary" tabindex="-1">캡처 사진 고르기</button><input type="file" id="fileInput" accept="image/*" multiple aria-label="캡처 사진 고르기"></span>
+        <div class="progress" id="ocrProgress" hidden><div id="ocrBar"></div></div>
+        <p class="small muted" id="ocrStatus"></p>
+        <div class="nums" id="ocrNums"></div>
+      </div>
+
+      <div class="field full"><h3>② 숫자 확인하기</h3><p class="hint">캡처에서 찾은 숫자가 들어가요. 틀리면 고치고, 캡처 없이 직접 적어도 돼요.</p></div>
+
       <div class="field full unit-row">
         <span class="small muted">증권사 앱에 금액이 어떻게 보이나요?</span>
         <div class="seg" role="group" aria-label="금액 단위">
@@ -277,17 +331,6 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
         <input id="inCash" inputmode="decimal" type="number" min="0" step="0.01" autocomplete="off">
         <span class="hint" id="cashConv"></span>
         <span class="hint">계좌에 VR과 상관없는 돈이 있다면 그만큼 빼고 적어주세요.</span>
-      </div>
-
-      <!-- 캡처에서 숫자 찾기 (선택) -->
-      <div class="ocr full">
-        <div class="ocr-head">
-          <span class="small muted">입력이 귀찮다면 캡처에서 숫자를 찾아드려요 (선택)</span>
-          <span class="filebtn"><button type="button" class="ghost small" tabindex="-1">캡처 올리기</button><input type="file" id="fileInput" accept="image/*" multiple aria-label="캡처 올리기"></span>
-        </div>
-        <div class="progress" id="ocrProgress" hidden><div id="ocrBar"></div></div>
-        <p class="small muted" id="ocrStatus"></p>
-        <div class="nums" id="ocrNums"></div>
       </div>
 
       <div class="full fields" id="setupFields">
@@ -660,10 +703,12 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     const start = isStart();
     $("flowTitle").textContent = start ? "내 VR 시작하기" : `${cur().n}사이클 마감`;
     $("flowIntro").textContent = start
-      ? "지금 증권사 앱에 보이는 숫자를 넣어주세요. 종가는 시작하기 직전 금요일 종가(주말이면 앱의 현재가)를 쓰면 됩니다."
-      : "금요일 장이 끝난 뒤 증권사 앱의 숫자를 넣어주세요." + (settings().formula === "skill" ? " 실력공식이라 금요일 종가도 필요해요." : " 기본공식이라 종가는 필요 없어요.");
+      ? "지금 증권사 앱 화면을 캡처해서 올리면 숫자를 알아서 채워드려요. 주말에 찍으면 현재가가 금요일 종가예요."
+      : "금요일 장이 끝난 뒤(토요일 오전) 증권사 앱 화면을 캡처해서 올려주세요." + (settings().formula === "skill" ? " 실력공식이라 현재가(종가)도 필요해요." : " 기본공식이라 현재가는 없어도 돼요.");
     $("setupFields").hidden = !start;
     $("priceField").hidden = !needsPrice();
+    $("needPrice").hidden = !needsPrice();
+    $("mockPriceRow").classList.toggle("off", !needsPrice());
     const s = start ? EXAMPLE.settings : settings();
     $("inMode").value = s.mode; $("inG").value = s.G; $("inLimit").value = s.limitPct;
     $("inContrib").value = s.contrib; $("inBand").value = s.bandPct; $("inFormula").value = s.formula;
@@ -705,6 +750,11 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     $("fxRow").hidden = !k;
     $("priceLabel").textContent = k ? "금요일 종가 (원)" : "금요일 종가 ($)";
     $("cashLabel").textContent = k ? "VR에 쓰는 현금 = Pool (원)" : "VR에 쓰는 현금 = Pool ($)";
+    $("mockPrice").textContent = k ? "83,300원" : "$61.04";
+    $("mockEval").textContent = k ? "24,990,000원" : "$18,312";
+    $("mockCashLabel").textContent = k ? "원화 예수금" : "USD 예수금";
+    $("mockCash").textContent = k ? "2,730,000원" : "$2,000.00";
+    $("mockCash2").textContent = k ? "2,730,000원" : "$2,000.00";
     $("inPrice").step = k ? "1" : "0.01";
     $("inCash").step = k ? "1" : "0.01";
     if (k) loadFx();
