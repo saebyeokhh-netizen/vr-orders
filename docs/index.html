@@ -114,6 +114,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 .hint{font-size:12px;color:var(--ink-3)}
 input,select{font-family:var(--mono);font-size:16px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:100%}
 select{font-family:var(--sans)}
+.unit-row{flex-direction:row;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.fx{background:var(--surface-2);border-radius:10px;padding:12px}
+.conv{color:var(--sell);font-family:var(--mono)}
 input.target{border-color:var(--sell);box-shadow:0 0 0 2px var(--sell-soft)}
 .check{display:flex;gap:8px;align-items:flex-start;font-size:14px}
 .check input{width:auto;margin-top:5px}
@@ -247,17 +250,32 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     <div class="fields">
       <p class="full small muted" id="flowIntro"></p>
 
+      <div class="field full unit-row">
+        <span class="small muted">증권사 앱에 금액이 어떻게 보이나요?</span>
+        <div class="seg" role="group" aria-label="금액 단위">
+          <button type="button" data-cur="usd" aria-pressed="true">$ 달러</button>
+          <button type="button" data-cur="krw" aria-pressed="false">₩ 원화</button>
+        </div>
+      </div>
+      <div class="field full fx" id="fxRow" hidden>
+        <label for="inFx">오늘 환율 (1달러 = ?원)</label>
+        <input id="inFx" inputmode="decimal" type="number" min="1" step="0.01" autocomplete="off">
+        <span class="hint" id="fxStatus">환율을 불러오는 중…</span>
+      </div>
+
       <div class="field">
         <label for="inShares">보유 수량 (주)</label>
         <input id="inShares" inputmode="numeric" type="number" min="0" step="1" autocomplete="off">
       </div>
       <div class="field" id="priceField">
-        <label for="inPrice">금요일 종가 ($)</label>
+        <label for="inPrice" id="priceLabel">금요일 종가 ($)</label>
         <input id="inPrice" inputmode="decimal" type="number" min="0" step="0.01" autocomplete="off">
+        <span class="hint" id="priceConv"></span>
       </div>
       <div class="field full">
-        <label for="inCash">VR에 쓰는 달러 현금 = Pool ($)</label>
+        <label for="inCash" id="cashLabel">VR에 쓰는 현금 = Pool ($)</label>
         <input id="inCash" inputmode="decimal" type="number" min="0" step="0.01" autocomplete="off">
+        <span class="hint" id="cashConv"></span>
         <span class="hint">계좌에 VR과 상관없는 돈이 있다면 그만큼 빼고 적어주세요.</span>
       </div>
 
@@ -553,7 +571,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
   function renderOrders() {
     $("tabBuy").setAttribute("aria-selected", side === "buy");
     $("tabSell").setAttribute("aria-selected", side === "sell");
-    document.querySelectorAll(".seg button").forEach((x) => x.setAttribute("aria-pressed", Number(x.dataset.g) === groupK));
+    document.querySelectorAll(".seg button[data-g]").forEach((x) => x.setAttribute("aria-pressed", Number(x.dataset.g) === groupK));
     const rows = currentOrders();
     const c = cur(), s = settings();
     const body = $("ordersBody");
@@ -605,6 +623,12 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     } else {
       add("첫 사이클은 시작할 때의 평가금을 그대로 V로 정해요.", `V = ${c.shares}주 × ${usd(c.price)} = ${usd(c.V)}`);
     }
+    const fx = c.calc?.fx;
+    if (fx && fx.rate > 0) {
+      let t = `원화로 입력했어요 (1달러 = ${fx.rate.toLocaleString("ko-KR")}원). 현금 ${krw(fx.krwCash)} = ${usd(fx.krwCash / fx.rate)}`;
+      if (fx.krwPrice) t += `, 종가 ${krw(fx.krwPrice)} = ${usd(fx.krwPrice / fx.rate)}`;
+      add(t + ".");
+    }
     add("밴드는 V의 ±" + settings().bandPct + "%예요.", `최소 ${usd(b.min)} · 최대 ${usd(b.max)}`);
     add("매수점 = 최소밴드 ÷ 지금 보유 수량, 매도점 = 최대밴드 ÷ 지금 보유 수량.", `예) ${usd(b.min)} ÷ ${c.shares} = ${usd(C.r2(b.min / c.shares))}`);
   }
@@ -646,6 +670,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     $("inShares").value = start ? "" : cur().shares;
     $("inPrice").value = ""; $("inCash").value = "";
     $("inIncluded").checked = false;
+    setUnit(unit);
     $("btnCommit").textContent = start ? "시작하고 주문표 만들기" : "마감하고 다음 주문표 만들기";
     syncModeLabels(); updatePreview();
     $("flowPanel").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -666,12 +691,84 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       : `이번 적립금 ${usd(settings().contrib, 0)}을 이미 계좌에 넣었어요 (위 현금에 포함됨)`;
   }
 
+  // ---------- 원화 입력 / 환율 ----------
+  const CUR_KEY = "vr-input-currency", FX_KEY = "vr-fx-cache";
+  let unit = (() => { try { return localStorage.getItem(CUR_KEY) === "krw" ? "krw" : "usd"; } catch { return "usd"; } })();
+  let fxInfo = null; // {rate, date, source}
+  const krw = (x) => Math.round(x).toLocaleString("ko-KR") + "원";
+
+  function setUnit(u) {
+    unit = u;
+    try { localStorage.setItem(CUR_KEY, u); } catch {}
+    document.querySelectorAll(".seg button[data-cur]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.cur === u));
+    const k = u === "krw";
+    $("fxRow").hidden = !k;
+    $("priceLabel").textContent = k ? "금요일 종가 (원)" : "금요일 종가 ($)";
+    $("cashLabel").textContent = k ? "VR에 쓰는 현금 = Pool (원)" : "VR에 쓰는 현금 = Pool ($)";
+    $("inPrice").step = k ? "1" : "0.01";
+    $("inCash").step = k ? "1" : "0.01";
+    if (k) loadFx();
+    updatePreview();
+  }
+
+  async function loadFx() {
+    if (fxInfo) return;
+    try {
+      const c = JSON.parse(localStorage.getItem(FX_KEY) || "null");
+      if (c && c.rate > 0 && Date.now() - c.fetchedAt < 6 * 3600 * 1000) { applyFx(c); return; }
+    } catch {}
+    $("fxStatus").textContent = "오늘 환율을 불러오는 중…";
+    const get = async (url, pick) => {
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), 7000);
+      try { const r = await fetch(url, { signal: ctl.signal, cache: "no-store" }); if (!r.ok) throw 0; return pick(await r.json()); }
+      finally { clearTimeout(t); }
+    };
+    const sources = [
+      () => get("https://open.er-api.com/v6/latest/USD", (d) => ({ rate: d.rates.KRW, date: new Date(d.time_last_update_unix * 1000).toISOString().slice(0, 10), source: "ExchangeRate-API" })),
+      () => get("https://api.frankfurter.app/latest?from=USD&to=KRW", (d) => ({ rate: d.rates.KRW, date: d.date, source: "Frankfurter" })),
+      () => get("https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.min.json", (d) => ({ rate: d.usd.krw, date: d.date, source: "currency-api" })),
+    ];
+    for (const s of sources) {
+      try {
+        const r = await s();
+        if (r.rate > 100 && r.rate < 10000) {
+          r.fetchedAt = Date.now();
+          try { localStorage.setItem(FX_KEY, JSON.stringify(r)); } catch {}
+          applyFx(r); return;
+        }
+      } catch {}
+    }
+    try {
+      const old = JSON.parse(localStorage.getItem(FX_KEY) || "null");
+      if (old && old.rate > 0) { applyFx(old); $("fxStatus").textContent += " · 인터넷이 안 돼서 예전 환율이에요"; return; }
+    } catch {}
+    $("fxStatus").textContent = "환율을 불러오지 못했어요. 증권사 앱의 환율을 직접 적어주세요.";
+  }
+  function applyFx(r) {
+    fxInfo = r;
+    if (!$("inFx").value) $("inFx").value = Math.round(r.rate * 100) / 100;
+    $("fxStatus").textContent = `${r.date} 기준 자동 환율 (${r.source}). 증권사 환율과 조금 다를 수 있어요. 고쳐 써도 돼요.`;
+    updatePreview();
+  }
+
   function readForm() {
     const shares = Math.round(Number($("inShares").value));
-    const price = Number($("inPrice").value);
-    const cash = Number($("inCash").value);
+    const priceIn = Number($("inPrice").value);
+    const cashIn = Number($("inCash").value);
+    const rate = Number($("inFx").value);
+    const k = unit === "krw";
+    const rateOk = !k || rate > 0;
+    const price = priceIn > 0 && rateOk ? (k ? C.r2(priceIn / rate) : priceIn) : 0;
+    const cash = cashIn >= 0 && rateOk ? (k ? C.r2(cashIn / rate) : cashIn) : NaN;
     const priceOk = !needsPrice() || price > 0;
-    return { shares, price: price > 0 ? price : 0, cash, ok: shares > 0 && priceOk && $("inCash").value !== "" && cash >= 0 };
+    $("priceConv").innerHTML = ""; $("cashConv").innerHTML = "";
+    if (k && rate > 0) {
+      if (priceIn > 0) $("priceConv").innerHTML = `<span class="conv">= ${usd(price)}</span>`;
+      if ($("inCash").value !== "" && cashIn >= 0) $("cashConv").innerHTML = `<span class="conv">= ${usd(cash)}</span>`;
+    }
+    const fx = k ? { rate, krwPrice: priceIn || null, krwCash: cashIn } : null;
+    return { shares, price, cash, fx, rateOk, ok: shares > 0 && priceOk && rateOk && $("inCash").value !== "" && cash >= 0 };
   }
 
   function formSettings() {
@@ -699,7 +796,9 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     const f = readForm(), box = $("preview");
     box.textContent = "";
     const line = (t, cls) => { const p = document.createElement("p"); p.textContent = t; if (cls) p.className = cls; box.append(p); };
+    if (!f.rateOk) { line("환율을 넣으면 원화를 달러로 바꿔서 계산해요.", "muted"); return; }
     if (!f.ok) { line(needsPrice() ? "보유 수량, 종가, 현금을 채우면 새 V를 미리 보여드려요." : "보유 수량과 현금을 채우면 새 V를 미리 보여드려요.", "muted"); return; }
+    if (f.fx) line(`원화 → 달러: 1달러 = ${f.fx.rate.toLocaleString("ko-KR")}원으로 계산해요. VR 계산은 달러로 해요.`, "muted");
     if (isStart()) {
       const s = formSettings(), V = C.r2(f.shares * f.price), b = C.bands(V, s.bandPct / 100);
       line(`첫 V = ${f.shares}주 × ${usd(f.price)} = ${usd(V)}`, "eq");
@@ -718,18 +817,19 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
 
   function commit() {
     const f = readForm(), err = $("flowError");
+    if (!f.rateOk) { err.textContent = "원화로 입력했다면 환율을 넣어주세요."; err.hidden = false; return; }
     if (!f.ok) { err.textContent = needsPrice() ? "보유 수량, 종가, 현금을 모두 입력해 주세요." : "보유 수량과 현금을 입력해 주세요."; err.hidden = false; return; }
     if (isStart()) {
       state = {
         settings: formSettings(),
-        cycles: [{ n: 1, date: today(), V: C.r2(f.shares * f.price), poolStart: C.r2(f.cash), shares: f.shares, price: f.price, calc: { kind: "start" } }],
+        cycles: [{ n: 1, date: today(), V: C.r2(f.shares * f.price), poolStart: C.r2(f.cash), shares: f.shares, price: f.price, calc: { kind: "start", fx: f.fx } }],
       };
     } else {
       const n = computeNext(f), s = settings(), c = cur();
       if (n.poolEnd < 0) { err.textContent = "현금이 적립금보다 적어요. 체크 표시를 확인해 주세요."; err.hidden = false; return; }
       state.cycles.push({
         n: c.n + 1, date: today(), V: n.V, poolStart: n.poolStart, shares: f.shares, price: f.price,
-        calc: { kind: "next", V1: c.V, poolEnd: n.poolEnd, E: n.E, G: Number(s.G), c: n.c, formula: s.formula, poolTerm: n.poolTerm, skillTerm: n.skillTerm },
+        calc: { kind: "next", V1: c.V, poolEnd: n.poolEnd, E: n.E, G: Number(s.G), c: n.c, formula: s.formula, poolTerm: n.poolTerm, skillTerm: n.skillTerm, fx: f.fx },
       });
     }
     side = "buy"; groupK = 1; sellCount = 20;
@@ -795,9 +895,15 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     const firstInt = (a) => a.find((n) => Number.isInteger(n) && n > 0 && n < 1e6) ?? null;
     const firstDec = (a) => a.find((n) => n > 0 && n < 10000 && !Number.isInteger(n)) ?? a.find((n) => n > 0 && n < 10000) ?? null;
     const firstMoney = (a) => a.find((n) => n >= 0) ?? null;
+    // 금액 단위 판단: "12,345원", "₩", "KRW"가 보이고 달러 표시가 없으면 원화 화면
+    const text = lines.join("\n");
+    const krwSign = /\d\s*원|₩|KRW/.test(text), usdSign = /\$\s*\d|\d\s*USD|US\$/.test(text);
+    g.unit = krwSign && !usdSign ? "krw" : usdSign && !krwSign ? "usd" : null;
+    const krwMode = (g.unit ?? unit) === "krw";
+    const firstKrwPrice = (a) => a.find((n) => n >= 1000 && n < 1e7) ?? null;
     g.shares = find(/보유\s*수량|잔고\s*수량|보유\s*주|주문\s*가능\s*수량|수량/, firstInt);
-    g.price = find(/현재가|종가|현재\s*가격/, firstDec);
-    g.cash = find(/예수금|주문\s*가능\s*(금액|달러|USD)|외화|USD|달러/i, firstMoney);
+    g.price = find(/현재가|종가|현재\s*가격/, krwMode ? firstKrwPrice : firstDec);
+    g.cash = find(/예수금|주문\s*가능\s*(금액|달러|USD|원화)?|외화|원화|USD|달러/i, firstMoney);
     return g;
   }
 
@@ -834,6 +940,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
   function showNumbers(lines) {
     const g = guess(lines);
     const filled = [];
+    if (g.unit && g.unit !== unit) { setUnit(g.unit); filled.push(g.unit === "krw" ? "단위(원화)" : "단위(달러)"); }
     if (g.shares != null && !$("inShares").value) { $("inShares").value = g.shares; filled.push("보유 수량"); }
     if (g.price != null && needsPrice() && !$("inPrice").value) { $("inPrice").value = g.price; filled.push("종가"); }
     if (g.cash != null && !$("inCash").value) { $("inCash").value = g.cash; filled.push("현금"); }
@@ -889,6 +996,8 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
   };
 
   // ---------- 이벤트 ----------
+  document.querySelectorAll(".seg button[data-cur]").forEach((b) => b.onclick = () => setUnit(b.dataset.cur));
+  $("inFx").addEventListener("input", updatePreview);
   $("btnOpen").onclick = openFlow;
   $("btnCloseFlow").onclick = closeFlow;
   $("btnCommit").onclick = commit;
@@ -901,7 +1010,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
   });
   $("tabBuy").onclick = () => { side = "buy"; renderOrders(); };
   $("tabSell").onclick = () => { side = "sell"; renderOrders(); };
-  document.querySelectorAll(".seg button").forEach((b) => b.onclick = () => { groupK = Number(b.dataset.g); renderOrders(); });
+  document.querySelectorAll(".seg button[data-g]").forEach((b) => b.onclick = () => { groupK = Number(b.dataset.g); renderOrders(); });
   $("btnMore").onclick = () => { sellCount += 20; renderOrders(); };
   $("btnUndo").onclick = () => { if (state.cycles.length < 2) return; state.cycles.pop(); render(); persist(); };
   let resetArmed = false;

@@ -1,5 +1,5 @@
 // 앱 파일을 캐시해 두어 인터넷이 없어도 주문표를 볼 수 있게 한다
-const CACHE = "vr-orders-v3";
+const CACHE = "vr-orders-v4";
 const FILES = ["./", "index.html", "vr-core.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {
