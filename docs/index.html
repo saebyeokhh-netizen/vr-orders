@@ -82,6 +82,7 @@ header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;
 .save-state{font-size:12px;color:var(--ink-3)}
 .banner{background:var(--warn-soft);border-radius:10px;padding:12px 14px;font-size:14px}
 .banner b{color:var(--warn)}
+.update-bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 
 .cycle{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:16px}
 .cycle-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
@@ -224,6 +225,11 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       <button class="install-btn" id="btnInstallTop" type="button" hidden>앱 설치</button>
     </div>
   </header>
+
+  <div class="banner update-bar" id="updateBar" hidden>
+    <p><b>새 버전이 있어요.</b> 입력을 마친 뒤 새로고침하면 적용돼요.</p>
+    <button class="ghost small" id="btnReload" type="button">지금 새로고침</button>
+  </div>
 
   <div class="banner" id="exampleBanner" hidden>
     <p><b>예시 화면입니다.</b> 책에 나온 김개미 씨의 적립식 3사이클 숫자예요. 아래 <b>내 VR 시작하기</b>를 누르면 내 숫자로 바뀝니다.</p>
@@ -504,7 +510,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     <button class="linklike" id="btnStayInApp" type="button">그냥 여기서 볼게요</button>
   </div>
 
-  <footer>계산은 『라오어의 미국주식 밸류 리밸런싱』의 공식을 따릅니다.<br>주문과 투자 판단은 본인이 확인하고 결정하세요. 입력한 숫자는 이 기기 밖으로 나가지 않아요.</footer>
+  <footer>계산은 『라오어의 미국주식 밸류 리밸런싱』의 공식을 따릅니다.<br>주문과 투자 판단은 본인이 확인하고 결정하세요. 입력한 숫자는 이 기기 밖으로 나가지 않아요.<br><span id="appVersion">버전 2026.09.24-7</span></footer>
 </div>
 
 <script src="vr-core.js"></script>
@@ -1162,7 +1168,22 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
   window.addEventListener("appinstalled", () => { closeSheet(); $("btnInstallTop").hidden = true; });
 
   render();
-  if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+  // ---------- 새 버전 자동 적용 ----------
+  // 설치한 앱은 백그라운드에 남아 있다가 다시 열리므로, 화면에 돌아올 때마다 새 버전을 확인한다.
+  if ("serviceWorker" in navigator && location.protocol === "https:") {
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then((reg) => {
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reg.update().catch(() => {}); });
+    }).catch(() => {});
+    let reloading = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadController || reloading) return;
+      // 입력 중이면 적어둔 숫자가 사라지지 않게 버튼으로 알리고, 아니면 바로 새로고침
+      if (!$("flowPanel").hidden) { $("updateBar").hidden = false; return; }
+      reloading = true; location.reload();
+    });
+  }
+  $("btnReload").onclick = () => location.reload();
 })();
 </script>
 </body>
