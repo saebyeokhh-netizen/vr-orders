@@ -71,7 +71,51 @@
     return out;
   }
 
-  const api = { r2, flow, nextV, bands, buyOrders, sellOrders, group };
+  // 사이클 동안 보유 수량이 바뀐 만큼, 주문표 순서대로 체결됐다고 보고 거래를 추정한다.
+  // 예약 지정가는 위에서부터 차례로 체결되므로 +3주면 매수표 첫 3줄, −2주면 매도표 첫 2줄.
+  // 주문표보다 많이 바뀌면(직접 사고판 경우) 나머지는 가격 없이 남긴다.
+  function inferTrades(minBand, maxBand, shares, pool, limitPct, newShares) {
+    const d = newShares - shares;
+    if (d > 0) {
+      const b = buyOrders(minBand, shares, pool, limitPct);
+      const out = b.slice(0, d).map((o) => ({ side: "buy", qty: 1, price: o.price }));
+      if (d > b.length) out.push({ side: "buy", qty: d - b.length, price: null });
+      return out;
+    }
+    if (d < 0) {
+      const s = sellOrders(maxBand, shares, pool, -d);
+      const out = s.map((o) => ({ side: "sell", qty: 1, price: o.price }));
+      if (-d > s.length) out.push({ side: "sell", qty: -d - s.length, price: null });
+      return out;
+    }
+    return [];
+  }
+
+  // 같은 가격끼리 묶어 "3주 @ $40.14"처럼 보기 좋게
+  function mergeTrades(list) {
+    const out = [];
+    for (const t of list) {
+      const last = out[out.length - 1];
+      if (last && last.side === t.side && last.price === t.price) last.qty += t.qty;
+      else out.push({ ...t });
+    }
+    return out;
+  }
+
+  // 다음 마감일: 사이클은 월요일~다음 주 금요일. 시작일이 주말이면 다음 월요일부터 센다.
+  // 마감은 두 번째 금요일 다음 날(토요일) 오전.
+  function nextCloseDate(startISO) {
+    const [y, m, d] = startISO.split("-").map(Number);
+    const t = new Date(Date.UTC(y, m - 1, d));
+    const dow = t.getUTCDay(); // 0 일 … 6 토
+    if (dow === 6) t.setUTCDate(t.getUTCDate() + 2);
+    else if (dow === 0) t.setUTCDate(t.getUTCDate() + 1);
+    const toFri = (5 - t.getUTCDay() + 7) % 7;
+    t.setUTCDate(t.getUTCDate() + toFri + 8); // 첫 금요일 + 7일 = 둘째 금요일, +1 = 토요일
+    return t.toISOString().slice(0, 10);
+  }
+
+  const api = { r2, flow, nextV, bands, buyOrders, sellOrders, group, inferTrades, mergeTrades, nextCloseDate };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.VRCore = api;
 })(typeof window !== "undefined" ? window : globalThis);
