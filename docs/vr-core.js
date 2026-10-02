@@ -115,7 +115,13 @@
     return t.toISOString().slice(0, 10);
   }
 
-  const api = { r2, flow, nextV, bands, buyOrders, sellOrders, group, inferTrades, mergeTrades, nextCloseDate };
+  function addDays(iso, n) {
+    const [y, m, d] = iso.split("-").map(Number);
+    const t = new Date(Date.UTC(y, m - 1, d + n));
+    return t.toISOString().slice(0, 10);
+  }
+
+  const api = { r2, flow, nextV, bands, buyOrders, sellOrders, group, inferTrades, mergeTrades, nextCloseDate, addDays };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.VRCore = api;
 })(typeof window !== "undefined" ? window : globalThis);

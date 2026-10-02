@@ -117,6 +117,11 @@ input,select{font-family:var(--mono);font-size:16px;padding:10px 12px;border-rad
 select{font-family:var(--sans)}
 .due-line{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--surface-2);padding-top:12px;font-size:14px}
 .due-bar{background:var(--sell-soft)}
+.due-line .hint button{background:none;border:0;padding:0;color:var(--sell);font-size:12px;text-decoration:underline}
+.last-edit{display:flex;flex-direction:column;gap:4px;margin-top:6px;max-width:200px}
+.last-edit input{font-size:14px;padding:6px 8px}
+.remind-card{background:var(--sell-soft);display:flex;flex-direction:column;gap:10px}
+.remind-card .actions{align-items:center}
 .due-bar p{color:var(--ink)}
 .trades,.alarm{display:flex;flex-direction:column;gap:12px}
 .trade-sum{font-size:14px;display:flex;gap:14px;flex-wrap:wrap}
@@ -279,7 +284,14 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       <div><span class="label">이번 매수 한도</span><span class="num" id="statLimit">—</span></div>
     </div>
     <div class="due-line">
-      <p><span class="label">다음 마감</span><br><span id="dueText">—</span></p>
+      <div>
+        <p><span class="label">다음 주문</span><br><span id="dueText">—</span></p>
+        <p class="hint" id="lastOrderText"></p>
+        <div class="last-edit" id="lastOrderEdit" hidden>
+          <label for="inLastOrder" class="hint">실제로 주문을 건 날</label>
+          <input id="inLastOrder" type="date">
+        </div>
+      </div>
       <button class="ghost small" id="btnAlarm" type="button">알림 받기</button>
     </div>
   </section>
@@ -433,6 +445,15 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     </div>
   </section>
 
+  <div class="banner remind-card" id="remindCard" hidden>
+    <p id="remindText"></p>
+    <div class="actions">
+      <button class="ghost small" id="btnRemindGcal" type="button">Google 캘린더에 넣기</button>
+      <button class="ghost small" id="btnRemindIcs" type="button">다른 캘린더</button>
+      <button class="linklike" id="btnRemindClose" type="button">닫기</button>
+    </div>
+  </div>
+
   <section class="orders" aria-label="예약 주문표">
     <div class="tabs" role="tablist">
       <button class="b" role="tab" id="tabBuy" aria-selected="true" type="button">매수 예약</button>
@@ -526,13 +547,13 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     </details>
 
     <details id="alarmDetails">
-      <summary>2주마다 알림 받기</summary>
+      <summary>다음 주문 알림 받기</summary>
       <div class="alarm">
-        <p class="small muted">폰 캘린더에 <b>2주마다 토요일 오전 9시</b> 반복 일정을 넣어요. 캘린더가 알림을 울려주면 앱을 열어 사이클을 마감하면 돼요.</p>
+        <p class="small muted"><b>마지막으로 주문한 날로부터 2주 뒤 오전 9시</b>에 폰 캘린더가 알려주도록 일정을 넣어요. 주문이 늦어지면 다음 알림도 그만큼 밀려요.</p>
         <p class="small" id="alarmFirst"></p>
-        <button class="primary" id="btnGcal" type="button">Google 캘린더에 추가</button>
+        <button class="primary" id="btnGcal" type="button">Google 캘린더에 넣기</button>
         <button class="ghost" id="btnIcs" type="button">다른 캘린더 (삼성·아이폰) 파일 받기</button>
-        <p class="hint">한 번만 추가하면 계속 반복돼요. 일정 알림이 안 울리면 캘린더 앱에서 일정의 알림을 켜주세요. 마감을 하루 늦게 해도 괜찮아요.</p>
+        <p class="hint">사이클을 마감할 때마다 앱이 새 날짜로 다시 넣으라고 알려줘요. 예전에 넣은 "2주마다 반복" 일정이 있다면 캘린더에서 지워주세요. 알림이 안 울리면 캘린더 앱에서 일정 알림을 켜주세요.</p>
       </div>
     </details>
 
@@ -640,7 +661,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     <button class="linklike" id="btnStayInApp" type="button">그냥 여기서 볼게요</button>
   </div>
 
-  <footer>계산은 『라오어의 미국주식 밸류 리밸런싱』의 공식을 따릅니다.<br>주문과 투자 판단은 본인이 확인하고 결정하세요. 입력한 숫자는 이 기기 밖으로 나가지 않아요.<br><span id="appVersion">버전 2026.09.27-9</span></footer>
+  <footer>계산은 『라오어의 미국주식 밸류 리밸런싱』의 공식을 따릅니다.<br>주문과 투자 판단은 본인이 확인하고 결정하세요. 입력한 숫자는 이 기기 밖으로 나가지 않아요.<br><span id="appVersion">버전 2026.10.02-10</span></footer>
 </div>
 
 <script src="vr-core.js"></script>
@@ -1088,6 +1109,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
         calc: { kind: "next", V1: c.V, poolEnd: n.poolEnd, E: n.E, G: Number(s.G), c: n.c, formula: s.formula, poolTerm: n.poolTerm, skillTerm: n.skillTerm, fx: f.fx },
       });
     }
+    state.lastOrderDate = today(); // 마감한 날 = 새 예약주문을 거는 날
     side = "buy"; groupK = 1; sellCount = 20; buyShow = 20;
     closeFlow(); render(); persist();
     document.querySelector(".orders").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1261,45 +1283,64 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
   // ---------- 다음 마감일 · 캘린더 알림 ----------
   const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
   const fmtDay = (iso) => { const [y, m, d] = iso.split("-").map(Number); const w = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); return `${m}월 ${d}일 ${WEEK[w]}요일`; };
-  const dueISO = () => C.nextCloseDate(state.example ? today() : cur().date);
+  // 마지막 주문일: 사이클을 마감한 날(그날 예약주문을 건다). 다르면 사용자가 고친 날짜.
+  const lastOrderISO = () => state.lastOrderDate || cur().date;
+  const dueISO = () => C.addDays(state.example ? today() : lastOrderISO(), 14);
   const daysUntil = (iso) => { const [y, m, d] = iso.split("-").map(Number); const [ty, tm, td] = today().split("-").map(Number); return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(ty, tm - 1, td)) / 86400000); };
+  const shortDay = (iso) => { const [, m, d] = iso.split("-").map(Number); return `${m}월 ${d}일`; };
 
   function renderDue() {
     const due = dueISO(), left = daysUntil(due);
-    $("dueText").textContent = state.example
-      ? `오늘 시작하면 ${fmtDay(due)} 아침`
-      : `${fmtDay(due)} 아침 ` + (left > 0 ? `(${left}일 남음)` : left === 0 ? "(오늘)" : `(${-left}일 지남)`);
-    $("alarmFirst").textContent = `첫 알림: ${fmtDay(due)} 오전 9시, 그 뒤로 2주마다`;
+    if (state.example) {
+      $("dueText").textContent = `오늘 주문하면 ${fmtDay(due)}`;
+      $("lastOrderText").textContent = "";
+    } else {
+      $("dueText").textContent = `${fmtDay(due)} ` + (left > 0 ? `(${left}일 남음)` : left === 0 ? "(오늘)" : `(${-left}일 지남)`);
+      $("lastOrderText").innerHTML = `마지막 주문 ${shortDay(lastOrderISO())} · <button type="button" id="btnEditLast">날짜 고치기</button>`;
+      $("btnEditLast").onclick = () => { $("inLastOrder").value = lastOrderISO(); $("lastOrderEdit").hidden = !$("lastOrderEdit").hidden; };
+    }
+    $("alarmFirst").textContent = `알림 날짜: ${fmtDay(due)} 오전 9시`;
     const show = !state.example && left <= 0;
     $("dueBar").hidden = !show;
-    if (show) $("dueBarText").innerHTML = `<b>${cur().n}사이클 마감할 때예요.</b> 증권사 앱 화면을 캡처해서 <b>${cur().n}사이클 마감</b>을 눌러주세요.`;
+    if (show) $("dueBarText").innerHTML = `<b>다음 주문할 때예요.</b> 마지막 주문(${shortDay(lastOrderISO())})에서 2주가 지났어요. 증권사 앱 화면을 캡처해서 <b>${cur().n}사이클 마감</b>을 눌러주세요.`;
+    // 마감 직후: 새 주문일을 캘린더에 넣으라고 안내 (넣었거나 닫으면 그 날짜에 대해서는 다시 안 띄움)
+    const remind = !state.example && left > 0 && state.remindedFor !== due;
+    $("remindCard").hidden = !remind;
+    if (remind) $("remindText").innerHTML = `<b>예약주문을 다 걸었나요?</b> 다음 주문일 <b>${fmtDay(due)}</b>을 캘린더에 넣어두면 그날 알려줘요.`;
   }
+  $("inLastOrder").addEventListener("change", () => {
+    const v = $("inLastOrder").value;
+    if (!v || state.example) return;
+    state.lastOrderDate = v;
+    $("lastOrderEdit").hidden = true;
+    render(); persist();
+  });
 
   const APP_URL = "https://saebyeokhh-netizen.github.io/vr-orders/";
-  const EVT_TITLE = "VR 주문표 · 사이클 마감";
+  const EVT_TITLE = "VR 주문표 · 다음 예약주문";
   const EVT_DESC = "증권사 앱에서 해외주식 잔고와 예수금 화면을 캡처하고, VR 주문표 앱에서 사이클을 마감한 뒤 새 예약주문을 거세요.\n" + APP_URL;
   const icsDate = (iso, hh) => iso.replace(/-/g, "") + "T" + hh + "0000";
-  $("btnGcal").onclick = () => {
+  function markReminded() { state.remindedFor = dueISO(); persist(); renderDue(); }
+  function openGcal() {
     const due = dueISO();
     const u = "https://calendar.google.com/calendar/render?action=TEMPLATE"
       + "&text=" + encodeURIComponent(EVT_TITLE)
       + "&dates=" + icsDate(due, "09") + "/" + icsDate(due, "10")
       + "&ctz=Asia/Seoul"
-      + "&recur=" + encodeURIComponent("RRULE:FREQ=WEEKLY;INTERVAL=2")
       + "&details=" + encodeURIComponent(EVT_DESC);
     window.open(u, "_blank");
-  };
-  $("btnIcs").onclick = () => {
+    if (!state.example) markReminded();
+  }
+  function downloadIcs() {
     const due = dueISO();
-    const esc = (s) => s.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
+    const esc = (x) => x.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
     const ics = [
       "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//VR 주문표//KO", "CALSCALE:GREGORIAN",
       "BEGIN:VEVENT",
-      "UID:vr-close-" + due + "@vr-orders",
+      "UID:vr-order-" + due + "@vr-orders",
       "DTSTAMP:" + new Date().toISOString().replace(/[-:]/g, "").slice(0, 15) + "Z",
       "DTSTART;TZID=Asia/Seoul:" + icsDate(due, "09"),
       "DTEND;TZID=Asia/Seoul:" + icsDate(due, "10"),
-      "RRULE:FREQ=WEEKLY;INTERVAL=2",
       "SUMMARY:" + esc(EVT_TITLE),
       "DESCRIPTION:" + esc(EVT_DESC),
       "URL:" + APP_URL,
@@ -1308,10 +1349,16 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     ].join("\r\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([ics], { type: "text/calendar" }));
-    a.download = "vr-2주-마감-알림.ics";
+    a.download = `vr-다음주문-${due}.ics`;
     document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  };
+    if (!state.example) markReminded();
+  }
+  $("btnGcal").onclick = openGcal;
+  $("btnIcs").onclick = downloadIcs;
+  $("btnRemindGcal").onclick = openGcal;
+  $("btnRemindIcs").onclick = downloadIcs;
+  $("btnRemindClose").onclick = markReminded;
   $("btnAlarm").onclick = () => { $("alarmDetails").open = true; $("alarmDetails").scrollIntoView({ behavior: "smooth", block: "start" }); };
 
   // ---------- 주문 기록 ----------
