@@ -291,6 +291,10 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
           <label for="inLastOrder" class="hint">실제로 주문을 건 날</label>
           <input id="inLastOrder" type="date">
         </div>
+        <div class="last-edit" id="nextOrderEdit" hidden>
+          <label for="inNextOrder" class="hint">다음 주문할 날 (미루거나 당기기)</label>
+          <input id="inNextOrder" type="date">
+        </div>
       </div>
       <button class="ghost small" id="btnAlarm" type="button">알림 받기</button>
     </div>
@@ -661,7 +665,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     <button class="linklike" id="btnStayInApp" type="button">그냥 여기서 볼게요</button>
   </div>
 
-  <footer>계산은 『라오어의 미국주식 밸류 리밸런싱』의 공식을 따릅니다.<br>주문과 투자 판단은 본인이 확인하고 결정하세요. 입력한 숫자는 이 기기 밖으로 나가지 않아요.<br><span id="appVersion">버전 2026.10.02-10</span></footer>
+  <footer>계산은 『라오어의 미국주식 밸류 리밸런싱』의 공식을 따릅니다.<br>주문과 투자 판단은 본인이 확인하고 결정하세요. 입력한 숫자는 이 기기 밖으로 나가지 않아요.<br><span id="appVersion">버전 2026.10.05-11</span></footer>
 </div>
 
 <script src="vr-core.js"></script>
@@ -1110,6 +1114,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       });
     }
     state.lastOrderDate = today(); // 마감한 날 = 새 예약주문을 거는 날
+    delete state.nextOrderDate;    // 직접 정했던 다음 주문일은 이번 마감으로 끝
     side = "buy"; groupK = 1; sellCount = 20; buyShow = 20;
     closeFlow(); render(); persist();
     document.querySelector(".orders").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1285,7 +1290,8 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
   const fmtDay = (iso) => { const [y, m, d] = iso.split("-").map(Number); const w = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); return `${m}월 ${d}일 ${WEEK[w]}요일`; };
   // 마지막 주문일: 사이클을 마감한 날(그날 예약주문을 건다). 다르면 사용자가 고친 날짜.
   const lastOrderISO = () => state.lastOrderDate || cur().date;
-  const dueISO = () => C.addDays(state.example ? today() : lastOrderISO(), 14);
+  // 다음 주문일: 직접 정한 날(미루기·당기기)이 있으면 그 날, 없으면 마지막 주문일 + 14일
+  const dueISO = () => state.example ? C.addDays(today(), 14) : (state.nextOrderDate || C.addDays(lastOrderISO(), 14));
   const daysUntil = (iso) => { const [y, m, d] = iso.split("-").map(Number); const [ty, tm, td] = today().split("-").map(Number); return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(ty, tm - 1, td)) / 86400000); };
   const shortDay = (iso) => { const [, m, d] = iso.split("-").map(Number); return `${m}월 ${d}일`; };
 
@@ -1296,8 +1302,9 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       $("lastOrderText").textContent = "";
     } else {
       $("dueText").textContent = `${fmtDay(due)} ` + (left > 0 ? `(${left}일 남음)` : left === 0 ? "(오늘)" : `(${-left}일 지남)`);
-      $("lastOrderText").innerHTML = `마지막 주문 ${shortDay(lastOrderISO())} · <button type="button" id="btnEditLast">날짜 고치기</button>`;
-      $("btnEditLast").onclick = () => { $("inLastOrder").value = lastOrderISO(); $("lastOrderEdit").hidden = !$("lastOrderEdit").hidden; };
+      $("lastOrderText").innerHTML = `마지막 주문 ${shortDay(lastOrderISO())} · <button type="button" id="btnEditLast">고치기</button> · <button type="button" id="btnEditNext">다음 주문일 바꾸기</button>`;
+      $("btnEditLast").onclick = () => { $("inLastOrder").value = lastOrderISO(); $("nextOrderEdit").hidden = true; $("lastOrderEdit").hidden = !$("lastOrderEdit").hidden; };
+      $("btnEditNext").onclick = () => { $("inNextOrder").value = dueISO(); $("lastOrderEdit").hidden = true; $("nextOrderEdit").hidden = !$("nextOrderEdit").hidden; };
     }
     $("alarmFirst").textContent = `알림 날짜: ${fmtDay(due)} 오전 9시`;
     const show = !state.example && left <= 0;
@@ -1308,6 +1315,13 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     $("remindCard").hidden = !remind;
     if (remind) $("remindText").innerHTML = `<b>예약주문을 다 걸었나요?</b> 다음 주문일 <b>${fmtDay(due)}</b>을 캘린더에 넣어두면 그날 알려줘요.`;
   }
+  $("inNextOrder").addEventListener("change", () => {
+    const v = $("inNextOrder").value;
+    if (!v || state.example) return;
+    state.nextOrderDate = v; // 다음 마감 때 지워지고 다시 "마감일 + 14일"로 돌아간다
+    $("nextOrderEdit").hidden = true;
+    render(); persist();
+  });
   $("inLastOrder").addEventListener("change", () => {
     const v = $("inLastOrder").value;
     if (!v || state.example) return;
