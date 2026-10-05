@@ -493,7 +493,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       <summary>2주마다 할 일</summary>
       <ol class="steps">
         <li><b>금요일 장 마감 후(토요일 오전)</b> 증권사 앱에서 TQQQ 보유 수량과 달러 현금을 확인합니다. 실력공식이면 금요일 종가도 봅니다.</li>
-        <li>여기서 <b>사이클 마감</b>을 누르고 그 숫자를 넣습니다.</li>
+        <li>여기서 <b>다음 주문표 만들기</b>를 누르고 그 숫자를 넣습니다. 앱이 지난 2주를 정리하고 새 V를 계산해요.</li>
         <li>새로 나온 <b>매수 예약</b>·<b>매도 예약</b> 표대로 지정가 예약주문을 겁니다. 2주치를 한 번에 걸어둡니다.</li>
         <li>다음 2주 동안은 아무것도 하지 않습니다. 체결되면 체결된 대로 둡니다.</li>
       </ol>
@@ -507,7 +507,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
         <div class="term"><dt>Pool</dt><dd><b>대기 현금.</b> 주식을 사려고 남겨둔 달러예요. 사면 줄고, 팔면 늘어요.</dd></div>
         <div class="term"><dt>G</dt><dd><b>속도 조절.</b> 10이면 Pool의 1/10만큼 V가 올라갑니다. 클수록 천천히, 안전하게 갑니다.</dd></div>
         <div class="term"><dt>사용한도</dt><dd><b>한 번에 쓸 현금 비율.</b> 폭락해도 2주 동안 Pool의 이 비율까지만 삽니다. 나머지는 다음 하락을 위해 남겨둬요.</dd></div>
-        <div class="term"><dt>E</dt><dd><b>마감 평가금.</b> 금요일 종가 × 보유 수량. 실력공식에서만 씁니다.</dd></div>
+        <div class="term"><dt>E</dt><dd><b>지난 2주 마지막 평가금.</b> 마지막 날 종가 × 보유 수량. 실력공식에서만 씁니다.</dd></div>
         <div class="term"><dt>사이클</dt><dd><b>2주.</b> 월요일부터 다음 주 금요일까지를 한 번으로 셉니다.</dd></div>
       </dl>
     </details>
@@ -515,7 +515,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     <details id="tradesDetails">
       <summary id="tradesSummary">주문 기록</summary>
       <div class="trades">
-        <p class="small muted">사이클을 마감하면 보유 수량이 바뀐 만큼 <b>주문표 가격으로 자동 기록</b>돼요. 실제 체결가가 다르면 <b>고치기</b>를 눌러 바꾸세요. 직접 사고판 것도 추가할 수 있어요.</p>
+        <p class="small muted">다음 주문표를 만들 때 보유 수량이 바뀐 만큼 <b>주문표 가격으로 자동 기록</b>돼요. 실제 체결가가 다르면 <b>고치기</b>를 눌러 바꾸세요. 직접 사고판 것도 추가할 수 있어요.</p>
         <p class="trade-sum" id="tradeSum"></p>
         <div class="tbl-wrap">
           <table class="trade-tbl">
@@ -557,14 +557,14 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
         <p class="small" id="alarmFirst"></p>
         <button class="primary" id="btnGcal" type="button">Google 캘린더에 넣기</button>
         <button class="ghost" id="btnIcs" type="button">다른 캘린더 (삼성·아이폰) 파일 받기</button>
-        <p class="hint">사이클을 마감할 때마다 앱이 새 날짜로 다시 넣으라고 알려줘요. 예전에 넣은 "2주마다 반복" 일정이 있다면 캘린더에서 지워주세요. 알림이 안 울리면 캘린더 앱에서 일정 알림을 켜주세요.</p>
+        <p class="hint">다음 주문표를 만들 때마다 앱이 새 날짜로 다시 넣으라고 알려줘요. 예전에 넣은 "2주마다 반복" 일정이 있다면 캘린더에서 지워주세요. 알림이 안 울리면 캘린더 앱에서 일정 알림을 켜주세요.</p>
       </div>
     </details>
 
     <details id="settingsDetails">
       <summary>설정 바꾸기</summary>
       <div class="fields">
-        <p class="full small muted">적립식에서 거치식·인출식으로 넘어가거나, 2주마다 넣을 금액을 바꿀 때 쓰세요. 새 방식은 <b>다음 사이클 마감부터</b> 적용돼요. 사용한도·밴드는 지금 주문표에 바로 반영돼요.</p>
+        <p class="full small muted">적립식에서 거치식·인출식으로 넘어가거나, 2주마다 넣을 금액을 바꿀 때 쓰세요. 새 방식은 <b>다음 주문표를 만들 때부터</b> 적용돼요. 사용한도·밴드는 지금 주문표에 바로 반영돼요.</p>
         <div class="field">
           <label for="setMode">방식</label>
           <select id="setMode">
@@ -665,7 +665,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     <button class="linklike" id="btnStayInApp" type="button">그냥 여기서 볼게요</button>
   </div>
 
-  <footer>계산은 『라오어의 미국주식 밸류 리밸런싱』의 공식을 따릅니다.<br>주문과 투자 판단은 본인이 확인하고 결정하세요. 입력한 숫자는 이 기기 밖으로 나가지 않아요.<br><span id="appVersion">버전 2026.10.05-11</span></footer>
+  <footer>계산은 『라오어의 미국주식 밸류 리밸런싱』의 공식을 따릅니다.<br>주문과 투자 판단은 본인이 확인하고 결정하세요. 입력한 숫자는 이 기기 밖으로 나가지 않아요.<br><span id="appVersion">버전 2026.10.05-12</span></footer>
 </div>
 
 <script src="vr-core.js"></script>
@@ -774,7 +774,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       $("gaugeNote").textContent = "평가금이 밴드 안에 있으면 아무 일도 일어나지 않아요.";
     }
 
-    $("btnOpen").textContent = state.example ? "내 VR 시작하기" : `${c.n}사이클 마감하고 다음 주문표 만들기`;
+    $("btnOpen").textContent = state.example ? "내 VR 시작하기" : `다음 주문표 만들기 (${c.n + 1}사이클)`;
     renderOrders(); renderCalc(); renderHistory(); renderDue(); renderTrades();
   }
 
@@ -873,10 +873,10 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     $("flowError").hidden = true;
     clearOcr();
     const start = isStart();
-    $("flowTitle").textContent = start ? "내 VR 시작하기" : `${cur().n}사이클 마감`;
+    $("flowTitle").textContent = start ? "내 VR 시작하기" : `${cur().n + 1}사이클 주문표 만들기`;
     $("flowIntro").textContent = start
       ? "지금 증권사 앱 화면을 캡처해서 올리면 숫자를 알아서 채워드려요. 주말에 찍으면 현재가가 금요일 종가예요."
-      : "금요일 장이 끝난 뒤(토요일 오전) 증권사 앱 화면을 캡처해서 올려주세요." + (settings().formula === "skill" ? " 실력공식이라 현재가(종가)도 필요해요." : " 기본공식이라 현재가는 없어도 돼요.");
+      : `지금 보유 수량과 현금으로 지난 2주(${cur().n}사이클)를 정리하고, 다음 2주 주문표를 만들어요. 증권사 앱 화면을 캡처해서 올려주세요.` +(settings().formula === "skill" ? " 실력공식이라 현재가(종가)도 필요해요." : " 기본공식이라 현재가는 없어도 돼요.");
     $("setupFields").hidden = !start;
     $("priceField").hidden = !needsPrice();
     $("needPrice").hidden = !needsPrice();
@@ -889,7 +889,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     $("inIncluded").checked = false;
     syncUnits();
     if (!start) resetFlow();
-    $("btnCommit").textContent = start ? "시작하고 주문표 만들기" : "마감하고 다음 주문표 만들기";
+    $("btnCommit").textContent = start ? "시작하고 주문표 만들기" : "다음 주문표 만들기";
     syncModeLabels(); updatePreview();
     $("flowPanel").scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -1309,7 +1309,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     $("alarmFirst").textContent = `알림 날짜: ${fmtDay(due)} 오전 9시`;
     const show = !state.example && left <= 0;
     $("dueBar").hidden = !show;
-    if (show) $("dueBarText").innerHTML = `<b>다음 주문할 때예요.</b> 마지막 주문(${shortDay(lastOrderISO())})에서 2주가 지났어요. 증권사 앱 화면을 캡처해서 <b>${cur().n}사이클 마감</b>을 눌러주세요.`;
+    if (show) $("dueBarText").innerHTML = `<b>다음 주문할 때예요.</b> 마지막 주문(${shortDay(lastOrderISO())})에서 2주가 지났어요. 증권사 앱 화면을 캡처해서 <b>다음 주문표 만들기</b>를 눌러주세요.`;
     // 마감 직후: 새 주문일을 캘린더에 넣으라고 안내 (넣었거나 닫으면 그 날짜에 대해서는 다시 안 띄움)
     const remind = !state.example && left > 0 && state.remindedFor !== due;
     $("remindCard").hidden = !remind;
@@ -1332,7 +1332,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
 
   const APP_URL = "https://saebyeokhh-netizen.github.io/vr-orders/";
   const EVT_TITLE = "VR 주문표 · 다음 예약주문";
-  const EVT_DESC = "증권사 앱에서 해외주식 잔고와 예수금 화면을 캡처하고, VR 주문표 앱에서 사이클을 마감한 뒤 새 예약주문을 거세요.\n" + APP_URL;
+  const EVT_DESC = "증권사 앱에서 해외주식 잔고와 예수금 화면을 캡처하고, VR 주문표 앱에서 \"다음 주문표 만들기\"를 누른 뒤 새 예약주문을 거세요.\n" + APP_URL;
   const icsDate = (iso, hh) => iso.replace(/-/g, "") + "T" + hh + "0000";
   function markReminded() { state.remindedFor = dueISO(); persist(); renderDue(); }
   function openGcal() {
@@ -1387,7 +1387,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     if (!list.length) {
       const tr = document.createElement("tr"), td = document.createElement("td");
       td.colSpan = 6; td.style.textAlign = "center"; td.style.fontFamily = "var(--sans)";
-      td.textContent = state.example ? "내 VR을 시작하면 여기에 기록이 쌓여요." : "아직 기록이 없어요. 첫 사이클을 마감하면 자동으로 채워져요.";
+      td.textContent = state.example ? "내 VR을 시작하면 여기에 기록이 쌓여요." : "아직 기록이 없어요. 다음 주문표를 만들면 자동으로 채워져요.";
       tr.append(td); body.append(tr);
     }
     let bq = 0, ba = 0, sq = 0, sa = 0;
