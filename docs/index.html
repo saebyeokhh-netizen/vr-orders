@@ -561,6 +561,34 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       </div>
     </details>
 
+    <details id="resetDetails">
+      <summary>Pool 다시 정하기</summary>
+      <div class="fields">
+        <p class="full small muted">처음에 현금을 너무 많이(또는 적게) Pool로 잡았을 때 쓰세요. <b>주문 기록과 지난 사이클 기록은 그대로 남고</b>, 오늘부터 새 Pool로 주문표를 다시 만들어요. VR에 안 쓰는 현금은 Pool에 넣지 않아도 돼요.</p>
+        <div class="field">
+          <label for="rsShares">지금 보유 수량 (주)</label>
+          <input id="rsShares" inputmode="numeric" type="number" min="1" step="1">
+        </div>
+        <div class="field">
+          <label for="rsPrice">지금 현재가 ($)</label>
+          <input id="rsPrice" inputmode="decimal" type="number" min="0" step="0.01">
+        </div>
+        <div class="field full">
+          <label for="rsPool">새 Pool (VR에 쓸 현금, $)</label>
+          <input id="rsPool" inputmode="decimal" type="number" min="0" step="0.01">
+        </div>
+        <label class="check full">
+          <input type="checkbox" id="rsResetV" checked>
+          <span>V도 지금 평가금(보유 수량 × 현재가)으로 다시 맞추기 <span class="hint">· 권장. 끄면 지금 V를 그대로 써요.</span></span>
+        </label>
+        <div class="preview full" id="rsPreview"></div>
+        <div class="actions full">
+          <button class="primary" id="btnReset2" type="button">Pool 다시 정하고 주문표 만들기</button>
+        </div>
+        <p class="full small muted" id="rsStatus"></p>
+      </div>
+    </details>
+
     <details id="settingsDetails">
       <summary>설정 바꾸기</summary>
       <div class="fields">
@@ -665,7 +693,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     <button class="linklike" id="btnStayInApp" type="button">그냥 여기서 볼게요</button>
   </div>
 
-  <footer>계산은 『라오어의 미국주식 밸류 리밸런싱』의 공식을 따릅니다.<br>주문과 투자 판단은 본인이 확인하고 결정하세요. 입력한 숫자는 이 기기 밖으로 나가지 않아요.<br><span id="appVersion">버전 2026.10.05-12</span></footer>
+  <footer>계산은 『라오어의 미국주식 밸류 리밸런싱』의 공식을 따릅니다.<br>주문과 투자 판단은 본인이 확인하고 결정하세요. 입력한 숫자는 이 기기 밖으로 나가지 않아요.<br><span id="appVersion">버전 2026.10.11-13</span></footer>
 </div>
 
 <script src="vr-core.js"></script>
@@ -834,6 +862,11 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       if (k.c) eq += (k.c > 0 ? " + " : " − ") + usd(Math.abs(k.c));
       add("", eq + ` = ${usd(c.V)}`);
       if (k.formula === "skill") add(`보정값 (E − V₁) ÷ 2√G = ${usd(k.skillTerm)}`);
+    } else if (c.calc?.kind === "reset") {
+      const k = c.calc;
+      add(`Pool을 ${usd(k.poolBefore)}에서 ${usd(c.poolStart)}로 다시 정했어요. 주문 기록과 지난 사이클 기록은 그대로예요.`);
+      if (k.resetV) add("V도 지금 평가금으로 다시 맞췄어요.", `V = ${c.shares}주 × ${usd(c.price)} = ${usd(c.V)}`);
+      else add(`V는 그대로 ${usd(c.V)}예요.`);
     } else {
       add("첫 사이클은 시작할 때의 평가금을 그대로 V로 정해요.", `V = ${c.shares}주 × ${usd(c.price)} = ${usd(c.V)}`);
     }
@@ -853,7 +886,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     body.textContent = "";
     for (const c of [...state.cycles].reverse()) {
       const tr = document.createElement("tr");
-      [c.n + "", c.date, usd(c.V), usd(c.poolStart), c.shares + "주"].forEach((v) => {
+      [c.n + (c.calc?.kind === "reset" ? " 재설정" : ""), c.date, usd(c.V), usd(c.poolStart), c.shares + "주"].forEach((v) => {
         const td = document.createElement("td"); td.textContent = v; tr.append(td);
       });
       body.append(tr);
@@ -1110,7 +1143,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       for (const t of inferred) state.trades.push({ id: newId(), date: today(), side: t.side, qty: t.qty, price: t.price, auto: true, closedAt: c.n + 1 });
       state.cycles.push({
         n: c.n + 1, date: today(), V: n.V, poolStart: n.poolStart, shares: f.shares, price: f.price,
-        calc: { kind: "next", V1: c.V, poolEnd: n.poolEnd, E: n.E, G: Number(s.G), c: n.c, formula: s.formula, poolTerm: n.poolTerm, skillTerm: n.skillTerm, fx: f.fx },
+        calc: { kind: "next", V1: c.V, poolEnd: n.poolEnd, E: n.E, G: Number(s.G), c: n.c, formula: s.formula, poolTerm: n.poolTerm, skillTerm: n.skillTerm, fx: f.fx, prevLastOrder: state.lastOrderDate ?? null, prevNextOrder: state.nextOrderDate ?? null },
       });
     }
     state.lastOrderDate = today(); // 마감한 날 = 새 예약주문을 거는 날
@@ -1476,6 +1509,58 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     else if (!(Number($("setContrib").value) > 0)) $("setContrib").value = d.contrib;
     syncSetMode();
   });
+  // ---------- Pool 다시 정하기 (기록은 남기고 새 출발점) ----------
+  const POOL_GUIDE = { accum: [0, 10], lump: [10, 20], withdraw: [20, 30] };
+  function readReset() {
+    const shares = Math.round(Number($("rsShares").value)), price = Number($("rsPrice").value), pool = Number($("rsPool").value);
+    const resetV = $("rsResetV").checked;
+    const ok = shares > 0 && $("rsPool").value !== "" && pool >= 0 && (!resetV || price > 0);
+    return { shares, price, pool, resetV, ok };
+  }
+  function updateResetPreview() {
+    const r = readReset(), box = $("rsPreview");
+    box.textContent = "";
+    const line = (t, cls) => { const p = document.createElement("p"); p.textContent = t; if (cls) p.className = cls; box.append(p); };
+    if (!r.ok) { line("보유 수량, 현재가, 새 Pool을 채우면 미리 보여드려요.", "muted"); return; }
+    const V = r.resetV ? C.r2(r.shares * r.price) : cur().V;
+    const b = C.bands(V, bandFrac());
+    line(r.resetV ? `새 V = ${r.shares}주 × ${usd(r.price)} = ${usd(V)}` : `V는 그대로 ${usd(V)}`, "eq");
+    line(`밴드 ${usd(b.min)} ~ ${usd(b.max)} · Pool ${usd(r.pool)}`);
+    if (r.price > 0) {
+      const stock = r.shares * r.price, pct = Math.round((r.pool / (stock + r.pool)) * 100);
+      const [lo, hi] = POOL_GUIDE[settings().mode] || [0, 10];
+      line(`현금 비율 ${pct}% (주식 ${usd(stock)} + Pool ${usd(r.pool)}) · 책 권장 ${MODE_NAME[settings().mode]} ${lo}~${hi}%`, pct > hi + 5 ? "error" : "muted");
+    }
+  }
+  $("resetDetails").addEventListener("toggle", () => {
+    if (!$("resetDetails").open) return;
+    $("rsShares").value = state.example ? "" : cur().shares;
+    $("rsPrice").value = state.example ? "" : (cur().price || "");
+    $("rsPool").value = "";
+    $("btnReset2").disabled = !!state.example;
+    $("rsStatus").textContent = state.example ? "내 VR을 시작한 뒤에 쓸 수 있어요." : "";
+    updateResetPreview();
+  });
+  ["rsShares", "rsPrice", "rsPool", "rsResetV"].forEach((id) => $(id).addEventListener("input", updateResetPreview));
+  $("btnReset2").onclick = () => {
+    if (state.example) return;
+    const r = readReset();
+    if (!r.ok) { $("rsStatus").textContent = "보유 수량, 현재가, 새 Pool을 모두 적어주세요."; return; }
+    const c = cur();
+    state.cycles.push({
+      n: c.n + 1, date: today(),
+      V: r.resetV ? C.r2(r.shares * r.price) : c.V,
+      poolStart: C.r2(r.pool), shares: r.shares, price: r.price || c.price,
+      calc: { kind: "reset", poolBefore: c.poolStart, Vbefore: c.V, resetV: r.resetV, prevLastOrder: state.lastOrderDate ?? null, prevNextOrder: state.nextOrderDate ?? null },
+    });
+    state.lastOrderDate = today(); // 새 주문표로 오늘 다시 주문을 건다
+    delete state.nextOrderDate;
+    side = "buy"; groupK = 1; sellCount = 20; buyShow = 20;
+    $("resetDetails").open = false;
+    render(); persist();
+    document.querySelector(".cycle").scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   $("btnSaveSettings").onclick = () => {
     if (state.example) return;
     const m = $("setMode").value;
@@ -1516,6 +1601,11 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     const gone = state.cycles.pop();
     // 그 마감 때 자동으로 기록한 거래도 함께 지운다 (직접 추가한 기록은 남김)
     state.trades = (state.trades || []).filter((t) => !(t.auto && t.closedAt === gone.n));
+    // 그 사이클을 만들기 전의 마지막·다음 주문일로 되돌린다
+    if (gone.calc && "prevLastOrder" in gone.calc) {
+      if (gone.calc.prevLastOrder) state.lastOrderDate = gone.calc.prevLastOrder; else delete state.lastOrderDate;
+      if (gone.calc.prevNextOrder) state.nextOrderDate = gone.calc.prevNextOrder; else delete state.nextOrderDate;
+    }
     render(); persist();
   };
   let resetArmed = false;
