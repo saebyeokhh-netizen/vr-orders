@@ -139,6 +139,7 @@ select{font-family:var(--sans)}
 .now-tag{font-family:var(--sans);font-size:11px;font-weight:700;color:var(--warn)}
 .fix-bar{background:var(--warn-soft);display:flex;flex-direction:column;gap:10px}
 .fix-bar button.primary{flex:none}
+.est-hint{color:var(--sell)}
 .flowbox{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:14px}
 .flowbox .seg{align-self:flex-start}
 .flowbox .seg button{padding:8px 18px;font-size:14px}
@@ -391,7 +392,8 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
         </div>
         <input id="inCash" inputmode="decimal" type="number" min="0" step="0.01" autocomplete="off">
         <span class="hint" id="cashConv"></span>
-        <span class="hint">증권사 앱에 원화로 보이면 ₩를 눌러 원화 그대로 적으세요. 계좌에 VR과 상관없는 돈이 있다면 그만큼 빼고 적어주세요.</span>
+        <span class="hint est-hint" id="cashEst" hidden></span>
+        <span class="hint" id="cashHelp">증권사 앱에 원화로 보이면 ₩를 눌러 원화 그대로 적으세요. 계좌에 VR과 상관없는 돈이 있다면 그만큼 빼고 적어주세요.</span>
       </div>
       <div class="field full fx" id="fxRow" hidden>
         <label for="inFx">오늘 환율 (1달러 = ?원)</label>
@@ -709,7 +711,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     <button class="linklike" id="btnStayInApp" type="button">그냥 여기서 볼게요</button>
   </div>
 
-  <footer>계산은 『라오어의 미국주식 밸류 리밸런싱』의 공식을 따릅니다.<br>주문과 투자 판단은 본인이 확인하고 결정하세요. 입력한 숫자는 이 기기 밖으로 나가지 않아요.<br><span id="appVersion">버전 2026.10.11-15</span></footer>
+  <footer>계산은 『라오어의 미국주식 밸류 리밸런싱』의 공식을 따릅니다.<br>주문과 투자 판단은 본인이 확인하고 결정하세요. 입력한 숫자는 이 기기 밖으로 나가지 않아요.<br><span id="appVersion">버전 2026.10.11-16</span></footer>
 </div>
 
 <script src="vr-core.js"></script>
@@ -958,6 +960,10 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     $("inIncluded").checked = false;
     syncUnits();
     if (!start) resetFlow();
+    cashSource = "est";
+    $("cashEst").hidden = true;
+    $("cashHelp").hidden = !start;
+    if (!start) fillEstimate();
     $("btnCommit").textContent = start ? "시작하고 주문표 만들기" : "다음 주문표 만들기";
     syncModeLabels(); updatePreview();
     $("flowPanel").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1076,6 +1082,35 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     fxInfo = r;
     if (!$("inFx").value) $("inFx").value = Math.round(r.rate * 100) / 100;
     $("fxStatus").textContent = `${r.date} 기준 자동 환율 (${r.source}). 증권사 환율과 조금 다를 수 있어요. 고쳐 써도 돼요.`;
+    updatePreview();
+  }
+
+  // ---------- 예상 VR 현금 ----------
+  // 지난 2주 동안 현금이 바뀐 건 예약주문 체결 때문 → 지난 Pool − 산 금액 + 판 금액
+  let cashSource = "est"; // est: 앱 예상값 · user: 직접 입력 · ocr: 캡처
+  function estimateCash(shares) {
+    if (isStart() || !(shares > 0)) return null;
+    const c = cur(), s = settings(), b = C.bands(c.V, bandFrac());
+    const tr = C.inferTrades(b.min, b.max, c.shares, c.poolStart, (Number(s.limitPct) || 50) / 100, shares);
+    if (tr.some((t) => t.price == null)) return null; // 주문표 밖에서 사고판 게 있으면 추정 불가
+    let bought = 0, sold = 0;
+    for (const t of tr) { if (t.side === "buy") bought += t.price * t.qty; else sold += t.price * t.qty; }
+    return { cash: C.r2(c.poolStart - bought + sold), pool: c.poolStart, bought: C.r2(bought), sold: C.r2(sold) };
+  }
+  function fillEstimate() {
+    if (isStart() || cashSource !== "est") return;
+    const est = estimateCash(Math.round(Number($("inShares").value)));
+    if (!est) { $("cashEst").hidden = false; $("cashEst").textContent = "주문표 밖에서 사고판 게 있어 현금을 계산할 수 없어요. 증권사 앱의 VR 현금을 적어주세요."; $("inCash").value = ""; updatePreview(); return; }
+    const rate = Number($("inFx").value);
+    if (units.cash === "krw" && !(rate > 0)) setUnit("cash", "usd");
+    $("inCash").value = units.cash === "krw" ? Math.round(est.cash * rate) : est.cash;
+    const parts = [`지난 Pool ${usd(est.pool)}`];
+    if (est.bought) parts.push(`산 금액 ${usd(est.bought)}`);
+    if (est.sold) parts.push(`판 금액 ${usd(est.sold)}`);
+    $("cashEst").hidden = false;
+    $("cashEst").textContent = est.bought || est.sold
+      ? `앱이 계산한 예상 VR 현금이에요: ${parts[0]}${est.bought ? " − " + parts[1] : ""}${est.sold ? " + 판 금액 " + usd(est.sold) : ""} = ${usd(est.cash)}. 실제 체결가가 달랐다면 증권사 앱 금액으로 고쳐주세요.`
+      : `보유 수량이 그대로라 지난 Pool ${usd(est.pool)} 그대로예요. 이번에 넣거나 뺀 돈은 아래 ③에서 고르세요.`;
     updatePreview();
   }
 
@@ -1280,18 +1315,29 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
   function showNumbers(lines, g) {
     const filled = [];
     if (g.shares != null) { $("inShares").value = g.shares; filled.push(`보유 수량 ${g.shares}주`); }
-    if (g.price != null && needsPrice()) {
+    if (g.price != null) {
       if (g.priceUnit !== units.price) setUnit("price", g.priceUnit);
       $("inPrice").value = g.price;
       filled.push(`종가 ${g.priceUnit === "krw" ? krw(g.price) : usd(g.price)}`);
     }
+    let keptEstimate = null;
     if (g.cash != null) {
-      if (g.cashUnit !== units.cash) setUnit("cash", g.cashUnit);
-      $("inCash").value = g.cash;
       const m = (x) => (g.cashUnit === "krw" ? krw(x) : usd(x));
-      filled.push(g.cashFrom
-        ? `현금 ${m(g.cash)} (총자산 ${m(g.cashFrom.total)} − 주식 평가금액 ${m(g.cashFrom.evalAmt)}로 계산)`
-        : `현금 ${m(g.cash)}`);
+      // 계좌 전체 현금이 앱이 계산한 VR 현금보다 훨씬 많으면, VR 밖의 돈이 섞인 것 → 예상값 유지
+      const est = !isStart() ? estimateCash(Math.round(Number($("inShares").value)) || cur().shares) : null;
+      const rate = Number($("inFx").value);
+      const ocrUsd = g.cashUnit === "krw" ? (rate > 0 ? g.cash / rate : null) : g.cash;
+      if (est && ocrUsd != null && ocrUsd > est.cash * 1.1 + 50) {
+        keptEstimate = { shown: m(g.cash), cash: g.cash, unit: g.cashUnit, est: est.cash };
+      } else {
+        if (g.cashUnit !== units.cash) setUnit("cash", g.cashUnit);
+        $("inCash").value = g.cash;
+        cashSource = "ocr";
+        $("cashEst").hidden = true;
+        filled.push(g.cashFrom
+          ? `현금 ${m(g.cash)} (총자산 ${m(g.cashFrom.total)} − 주식 평가금액 ${m(g.cashFrom.evalAmt)}로 계산)`
+          : `현금 ${m(g.cash)}`);
+      }
     }
     const missing = [];
     if (g.shares == null) missing.push("보유 수량");
@@ -1326,6 +1372,19 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       msg += "그 칸을 누른 뒤 아래 숫자를 누르거나 직접 적어주세요.";
     }
     $("ocrStatus").textContent = msg || "숫자를 찾지 못했어요. 직접 입력해 주세요.";
+    if (keptEstimate) {
+      const p = document.createElement("p");
+      p.className = "small";
+      p.innerHTML = `캡처 속 현금은 <b>${keptEstimate.shown}</b>인데, 앱이 계산한 VR 현금(${usd(keptEstimate.est)})보다 많아서 <b>VR 밖의 돈이 섞인 것 같아요.</b> 현금 칸은 예상값 그대로 뒀어요. 계좌 현금 전부가 VR 돈이라면 `;
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "ghost small"; b.textContent = "캡처 금액 쓰기";
+      b.onclick = () => {
+        if (keptEstimate.unit !== units.cash) setUnit("cash", keptEstimate.unit);
+        $("inCash").value = keptEstimate.cash; cashSource = "ocr"; $("cashEst").hidden = true; p.remove(); updatePreview();
+      };
+      p.append(b, document.createTextNode(" 버튼을 누르세요."));
+      $("ocrStatus").append(p);
+    }
     const firstMissing = { "보유 수량": "inShares", "종가": "inPrice", "현금(예수금)": "inCash" }[missing[0]] || "inShares";
     setTarget(firstMissing);
     updatePreview();
@@ -1623,6 +1682,8 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
   $("btnCommit").onclick = commit;
   $("fileInput").onchange = (ev) => { const fs = [...ev.target.files]; if (fs.length) runOcr(fs); };
   ["inShares", "inPrice", "inCash", "inG", "inLimit", "inContrib", "inBand", "inFormula", "inIncluded", "inFlowAmt"].forEach((id) => $(id).addEventListener("input", updatePreview));
+  $("inShares").addEventListener("input", fillEstimate);
+  $("inCash").addEventListener("input", (e) => { if (e.isTrusted) { cashSource = "user"; $("cashEst").hidden = true; } });
   document.querySelectorAll("#flowBox button[data-flow]").forEach((b) => b.onclick = () => setFlow(b.dataset.flow));
   $("inMode").addEventListener("change", () => {
     const d = DEFAULTS[$("inMode").value];
