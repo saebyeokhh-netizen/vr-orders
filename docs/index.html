@@ -133,6 +133,10 @@ select{font-family:var(--sans)}
 .row-btns button{padding:3px 8px;font-size:12px;border-radius:6px}
 .est{font-family:var(--sans);font-size:11px;color:var(--ink-3)}
 .trade-form{border-top:1px solid var(--line);padding-top:12px}
+.warn-box{background:var(--warn-soft);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;font-size:14px}
+.warn-box b{color:var(--warn)}
+.instant-note{background:var(--buy-soft);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--ink)}
+.now-tag{font-family:var(--sans);font-size:11px;font-weight:700;color:var(--warn)}
 .flowbox{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:14px}
 .flowbox .seg{align-self:flex-start}
 .flowbox .seg button{padding:8px 18px;font-size:14px}
@@ -313,6 +317,10 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
 
     <div class="fields">
       <p class="full small muted" id="flowIntro"></p>
+      <div class="full warn-box" id="earlyWarn" hidden>
+        <p id="earlyWarnText"></p>
+        <label class="check"><input type="checkbox" id="inEarlyOk"><span>알고 있어요. 그래도 지금 만들게요.</span></label>
+      </div>
 
       <!-- 1단계: 캡처 올리기 -->
       <div class="ocr full">
@@ -357,7 +365,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       </div>
       <div class="field" id="priceField">
         <div class="label-row">
-          <label for="inPrice">금요일 종가</label>
+          <label for="inPrice" id="priceLabel">금요일 종가</label>
           <div class="seg mini" role="group" aria-label="종가 단위" data-field="price">
             <button type="button" data-unit="usd" aria-pressed="true">$</button>
             <button type="button" data-unit="krw" aria-pressed="false">₩</button>
@@ -473,6 +481,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
           <button type="button" data-g="5" aria-pressed="false">5개씩</button>
         </div>
       </div>
+      <p class="instant-note" id="instantNote" hidden></p>
       <div class="tbl-wrap">
         <table>
           <thead><tr><th>지정가</th><th>수량</th><th>체결 후 보유</th><th>체결 후 Pool</th></tr></thead>
@@ -693,7 +702,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     <button class="linklike" id="btnStayInApp" type="button">그냥 여기서 볼게요</button>
   </div>
 
-  <footer>계산은 『라오어의 미국주식 밸류 리밸런싱』의 공식을 따릅니다.<br>주문과 투자 판단은 본인이 확인하고 결정하세요. 입력한 숫자는 이 기기 밖으로 나가지 않아요.<br><span id="appVersion">버전 2026.10.11-13</span></footer>
+  <footer>계산은 『라오어의 미국주식 밸류 리밸런싱』의 공식을 따릅니다.<br>주문과 투자 판단은 본인이 확인하고 결정하세요. 입력한 숫자는 이 기기 밖으로 나가지 않아요.<br><span id="appVersion">버전 2026.10.11-14</span></footer>
 </div>
 
 <script src="vr-core.js"></script>
@@ -822,16 +831,27 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     }
     // 매수표는 Pool이 크면 수백 줄이 될 수 있어 처음 몇 줄만 보여준다 (위쪽부터 체결되므로 위가 중요)
     const shown = side === "buy" ? rows.slice(0, buyShow) : rows;
+    // 마지막으로 입력한 현재가가 있으면, 그보다 비싼 매수(싼 매도)는 장이 열리자마자 체결된다
+    const px = c.price > 0 ? c.price : 0;
+    const instant = (r) => px > 0 && (side === "buy" ? r.price > px : r.price < px);
     for (const r of shown) {
       const tr = document.createElement("tr");
       [usd(r.price), r.qty + "주", r.holdAfter.toLocaleString() + "주", usd(r.poolAfter)].forEach((v, i) => {
         const td = document.createElement("td");
         td.textContent = v;
-        if (i === 0) td.className = side === "buy" ? "price-b" : "price-s";
+        if (i === 0) {
+          td.className = side === "buy" ? "price-b" : "price-s";
+          if (instant(r)) { const t = document.createElement("div"); t.className = "now-tag"; t.textContent = "바로 체결"; td.append(t); }
+        }
         tr.append(td);
       });
       body.append(tr);
     }
+    const nInstant = rows.filter(instant).reduce((a, r) => a + r.qty, 0);
+    $("instantNote").hidden = !nInstant;
+    if (nInstant) $("instantNote").innerHTML = side === "buy"
+      ? `<b>${nInstant}주는 바로 체결돼요.</b> 지정가 매수는 "이 가격 <b>이하면</b> 산다"는 뜻이라, 현재가(${usd(px)})보다 비싼 주문은 장이 열리자마자 현재가 근처에서 사져요.`
+      : `<b>${nInstant}주는 바로 체결돼요.</b> 지정가 매도는 "이 가격 <b>이상이면</b> 판다"는 뜻이라, 현재가(${usd(px)})보다 싼 주문은 장이 열리자마자 팔려요.`;
     if (side === "buy") {
       const used = c.poolStart - (rows.at(-1)?.poolAfter ?? c.poolStart);
       $("ordersHint").textContent = rows.length
@@ -911,8 +931,17 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       ? "지금 증권사 앱 화면을 캡처해서 올리면 숫자를 알아서 채워드려요. 주말에 찍으면 현재가가 금요일 종가예요."
       : `지금 보유 수량과 현금으로 지난 2주(${cur().n}사이클)를 정리하고, 다음 2주 주문표를 만들어요. 증권사 앱 화면을 캡처해서 올려주세요.` +(settings().formula === "skill" ? " 실력공식이라 현재가(종가)도 필요해요." : " 기본공식이라 현재가는 없어도 돼요.");
     $("setupFields").hidden = !start;
-    $("priceField").hidden = !needsPrice();
-    $("needPrice").hidden = !needsPrice();
+    $("priceField").hidden = false;
+    $("priceLabel").textContent = needsPrice() ? "금요일 종가" : "지금 현재가 (선택)";
+    $("needPrice").innerHTML = needsPrice()
+      ? "<b>TQQQ 현재가</b> (금요일 장 마감 후 찍으면 그게 종가예요)"
+      : "<b>TQQQ 현재가</b> (선택 · 넣으면 바로 체결될 주문을 표시해 줘요)";
+    $("needPrice").hidden = false;
+    const left = daysUntil(dueISO());
+    const early = !start && left > 2;
+    $("earlyWarn").hidden = !early;
+    $("inEarlyOk").checked = false;
+    if (early) $("earlyWarnText").innerHTML = `<b>아직 2주가 안 지났어요.</b> 마지막 주문은 ${shortDay(lastOrderISO())}, 다음 주문일은 ${fmtDay(dueISO())}이에요. 지금 만들면 V에 "Pool ÷ G${settings().contrib ? " + 적립금" : ""}"이 한 번 더 더해져서 V가 너무 빨리 올라가요. 연습으로 눌렀다면 <b>닫기</b>를 누르세요.`;
     $("mockPriceRow").classList.toggle("off", !needsPrice());
     const s = start ? EXAMPLE.settings : settings();
     $("inMode").value = s.mode; $("inG").value = s.G; $("inLimit").value = s.limitPct;
@@ -989,7 +1018,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     document.querySelectorAll(".seg[data-field]").forEach((g) =>
       g.querySelectorAll("button[data-unit]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.unit === units[g.dataset.field])));
     const kp = units.price === "krw", kc = units.cash === "krw";
-    const anyKrw = (kp && needsPrice()) || kc;
+    const anyKrw = kp || kc;
     $("fxRow").hidden = !anyKrw;
     $("mockPrice").textContent = kp ? "83,300원" : "$61.04";
     $("mockEval").textContent = kp ? "24,990,000원" : "$18,312";
@@ -1048,7 +1077,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     const priceIn = Number($("inPrice").value);
     const cashIn = Number($("inCash").value);
     const rate = Number($("inFx").value);
-    const kp = units.price === "krw" && needsPrice(), kc = units.cash === "krw";
+    const kp = units.price === "krw", kc = units.cash === "krw";
     const rateOk = !(kp || kc) || rate > 0;
     const price = priceIn > 0 && rateOk ? (kp ? C.r2(priceIn / rate) : priceIn) : 0;
     const cash = cashIn >= 0 && rateOk ? (kc ? C.r2(cashIn / rate) : cashIn) : NaN;
@@ -1127,6 +1156,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     const f = readForm(), err = $("flowError");
     if (!f.rateOk) { err.textContent = "원화로 입력했다면 환율을 넣어주세요."; err.hidden = false; return; }
     if (!f.ok) { err.textContent = needsPrice() ? "보유 수량, 종가, 현금을 모두 입력해 주세요." : "보유 수량과 현금을 입력해 주세요."; err.hidden = false; return; }
+    if (!$("earlyWarn").hidden && !$("inEarlyOk").checked) { err.textContent = "2주가 안 지났어요. 그래도 만들려면 위의 확인란을 체크해 주세요."; err.hidden = false; $("earlyWarn").scrollIntoView({ behavior: "smooth", block: "center" }); return; }
     if (isStart()) {
       state = {
         settings: formSettings(),
