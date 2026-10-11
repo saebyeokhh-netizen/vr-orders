@@ -137,6 +137,8 @@ select{font-family:var(--sans)}
 .warn-box b{color:var(--warn)}
 .instant-note{background:var(--buy-soft);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--ink)}
 .now-tag{font-family:var(--sans);font-size:11px;font-weight:700;color:var(--warn)}
+.fix-bar{background:var(--warn-soft);display:flex;flex-direction:column;gap:10px}
+.fix-bar button.primary{flex:none}
 .flowbox{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:14px}
 .flowbox .seg{align-self:flex-start}
 .flowbox .seg button{padding:8px 18px;font-size:14px}
@@ -250,6 +252,11 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       <button class="install-btn" id="btnInstallTop" type="button" hidden>앱 설치</button>
     </div>
   </header>
+
+  <div class="banner fix-bar" id="fixBar" hidden>
+    <p id="fixText"></p>
+    <button class="primary" id="btnFix" type="button">정리하기</button>
+  </div>
 
   <div class="banner update-bar" id="updateBar" hidden>
     <p><b>새 버전이 있어요.</b> 입력을 마친 뒤 새로고침하면 적용돼요.</p>
@@ -702,7 +709,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     <button class="linklike" id="btnStayInApp" type="button">그냥 여기서 볼게요</button>
   </div>
 
-  <footer>계산은 『라오어의 미국주식 밸류 리밸런싱』의 공식을 따릅니다.<br>주문과 투자 판단은 본인이 확인하고 결정하세요. 입력한 숫자는 이 기기 밖으로 나가지 않아요.<br><span id="appVersion">버전 2026.10.11-14</span></footer>
+  <footer>계산은 『라오어의 미국주식 밸류 리밸런싱』의 공식을 따릅니다.<br>주문과 투자 판단은 본인이 확인하고 결정하세요. 입력한 숫자는 이 기기 밖으로 나가지 않아요.<br><span id="appVersion">버전 2026.10.11-15</span></footer>
 </div>
 
 <script src="vr-core.js"></script>
@@ -812,7 +819,7 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
     }
 
     $("btnOpen").textContent = state.example ? "내 VR 시작하기" : `다음 주문표 만들기 (${c.n + 1}사이클)`;
-    renderOrders(); renderCalc(); renderHistory(); renderDue(); renderTrades();
+    renderOrders(); renderCalc(); renderHistory(); renderDue(); renderTrades(); renderFix();
   }
 
   function renderOrders() {
@@ -1626,8 +1633,9 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
   $("tabSell").onclick = () => { side = "sell"; renderOrders(); };
   document.querySelectorAll(".seg button[data-g]").forEach((b) => b.onclick = () => { groupK = Number(b.dataset.g); renderOrders(); });
   $("btnMore").onclick = () => { if (side === "buy") buyShow += 40; else sellCount += 20; renderOrders(); };
-  $("btnUndo").onclick = () => {
-    if (state.cycles.length < 2) return;
+  // 마지막 사이클 하나를 지우고 그 전 상태로 (자동 기록 거래·주문일도 함께)
+  function popCycle() {
+    if (state.cycles.length < 2) return null;
     const gone = state.cycles.pop();
     // 그 마감 때 자동으로 기록한 거래도 함께 지운다 (직접 추가한 기록은 남김)
     state.trades = (state.trades || []).filter((t) => !(t.auto && t.closedAt === gone.n));
@@ -1636,7 +1644,45 @@ footer{font-size:12px;color:var(--ink-3);text-align:center}
       if (gone.calc.prevLastOrder) state.lastOrderDate = gone.calc.prevLastOrder; else delete state.lastOrderDate;
       if (gone.calc.prevNextOrder) state.nextOrderDate = gone.calc.prevNextOrder; else delete state.nextOrderDate;
     }
+    return gone;
+  }
+  $("btnUndo").onclick = () => { if (popCycle()) { render(); persist(); } };
+
+  // ---------- 실수로 연달아 만든 주문표 정리 ----------
+  // 일주일도 안 돼서 만든 "다음 주문표"는 2주가 지나지 않았는데 V에 Pool÷G·적립금이 또 더해진 것
+  const daysBetween = (a, b) => { const p = (x) => { const [y, m, d] = x.split("-").map(Number); return Date.UTC(y, m - 1, d); }; return Math.round((p(b) - p(a)) / 86400000); };
+  function extraCycles() {
+    if (state.example) return 0;
+    let k = 0;
+    const cs = state.cycles;
+    for (let i = cs.length - 1; i >= 1; i--) {
+      if (cs[i].calc?.kind !== "next" || daysBetween(cs[i - 1].date, cs[i].date) >= 7) break;
+      k++;
+    }
+    return k;
+  }
+  let fixedMsg = "";
+  function renderFix() {
+    const k = extraCycles();
+    if (k) {
+      const keep = state.cycles[state.cycles.length - 1 - k];
+      $("fixText").innerHTML = `<b>주문표가 짧은 기간에 ${k}번 더 만들어졌어요.</b> 그래서 V가 실제보다 크게 올라가 있어요 (지금 ${usd(cur().V)}). <b>정리하기</b>를 누르면 ${keep.n}사이클(${shortDay(keep.date)}, V ${usd(keep.V)}) 상태로 돌아가요. 주문 기록은 그대로예요.`;
+      $("btnFix").hidden = false;
+      $("fixBar").hidden = false;
+    } else if (fixedMsg) {
+      $("fixText").innerHTML = fixedMsg;
+      $("btnFix").hidden = true;
+      $("fixBar").hidden = false;
+    } else $("fixBar").hidden = true;
+  }
+  $("btnFix").onclick = () => {
+    const k = extraCycles();
+    for (let i = 0; i < k; i++) popCycle();
+    const c = cur(), b = C.bands(c.V, bandFrac());
+    fixedMsg = `<b>정리했어요.</b> 지금은 ${c.n}사이클, V ${usd(c.V)}, Pool ${usd(c.poolStart)}이에요. 아래 <b>매수 예약</b> 첫 줄(${usd(C.r2(b.min / c.shares))})이 지금 TQQQ 가격보다 <b>낮으면</b> 정상이에요. 그 표대로 예약주문을 걸면 돼요.`;
+    side = "buy"; groupK = 1; buyShow = 20;
     render(); persist();
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
   let resetArmed = false;
   $("btnReset").onclick = () => {
